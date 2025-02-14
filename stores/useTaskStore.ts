@@ -1,15 +1,18 @@
 // stores/useTaskStore.ts
 import { defineStore } from 'pinia'
 
+// Define our type constants to ensure consistency throughout the store
 const TASK_TYPES = ['public', 'private'] as const
 const PRIORITIES = ['low', 'medium', 'high'] as const
 const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
 
+// Type definitions using the constants above
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
 type Status = typeof STATUSES[number]
 
-interface Comment {
+// Define the structure for comments on tasks
+export interface Comment {
   id: number
   taskId: number
   content: string
@@ -21,7 +24,8 @@ interface Comment {
   taskType: TaskType
 }
 
-interface Task {
+// Define the structure for tasks
+export interface Task {
   id: number
   title: string
   description: string
@@ -29,7 +33,7 @@ interface Task {
   priority: Priority
   status: Status
   dueDate: string | null
-  progress: number 
+  progress: number
   assignee: {
     name: string
     avatar: string
@@ -40,6 +44,7 @@ interface Task {
   createdAt: string
 }
 
+// Define the structure for our store's state
 interface TaskState {
   tasks: Task[]
   comments: Comment[]
@@ -47,7 +52,9 @@ interface TaskState {
   nextCommentId: number
 }
 
+// Create and export the store
 export const useTaskStore = defineStore('tasks', {
+  // Initialize the state with empty arrays and starting IDs
   state: (): TaskState => ({
     tasks: [],
     comments: [],
@@ -55,16 +62,21 @@ export const useTaskStore = defineStore('tasks', {
     nextCommentId: 1
   }),
 
+  // Getters for accessing and filtering tasks
   getters: {
+    // Get all public tasks
     publicTasks: (state): Task[] => 
       state.tasks.filter(task => task.type === 'public'),
     
+    // Get all private tasks
     privateTasks: (state): Task[] =>
       state.tasks.filter(task => task.type === 'private'),
     
+    // Get a specific task by ID
     getTaskById: (state) => (id: number): Task | undefined =>
       state.tasks.find(task => task.id === id),
     
+    // Get comments for a specific task
     getCommentsByTaskId: (state) => (taskId: number): Comment[] => {
       const task = state.tasks.find(t => t.id === taskId)
       if (!task) return []
@@ -75,74 +87,77 @@ export const useTaskStore = defineStore('tasks', {
     }
   },
 
+  // Actions for modifying the store's state
   actions: {
+    // Initialize the store with sample data
     initializeStore() {
-  // Only add sample data if the store is empty
-  if (this.tasks.length === 0) {
-    // Test task 1: Not Started
-    this.createTask({
-      title: "Design new landing page",
-      description: "Create wireframes and mockups for the homepage redesign",
-      type: "public",
-      priority: "medium",
-      status: "not_started",
-      assignee: {
-        name: "Sarah Chen",
-        avatar: "/placeholder-avatar.png"
-      }
-    })
+      if (this.tasks.length === 0) {
+        // Sample tasks demonstrating different states and progress levels
+        this.createTask({
+          title: "Design new landing page",
+          description: "Create wireframes and mockups for the homepage redesign",
+          type: "public",
+          priority: "medium",
+          status: "not_started",
+          progress: 0,
+          assignee: {
+            name: "Sarah Chen",
+            avatar: "/placeholder-avatar.png"
+          }
+        })
 
-    // Test task 2: In Progress
-    this.createTask({
-      title: "Implement user authentication",
-      description: "Set up OAuth and JWT authentication flow",
-      type: "public",
-      priority: "high",
-      status: "in_progress",
-      assignee: {
-        name: "Mike Johnson",
-        avatar: "/placeholder-avatar.png"
-      }
-    })
+        this.createTask({
+          title: "Implement user authentication",
+          description: "Set up OAuth and JWT authentication flow",
+          type: "public",
+          priority: "high",
+          status: "in_progress",
+          progress: 75,
+          assignee: {
+            name: "Mike Johnson",
+            avatar: "/placeholder-avatar.png"
+          }
+        })
 
-    // Test task 3: In Review
-    this.createTask({
-      title: "Write API documentation",
-      description: "Document all endpoints and request/response formats",
-      type: "public",
-      priority: "low",
-      status: "in_review",
-      assignee: {
-        name: "Alex Wong",
-        avatar: "/placeholder-avatar.png"
-      }
-    })
+        this.createTask({
+          title: "Write API documentation",
+          description: "Document all endpoints and request/response formats",
+          type: "private",
+          priority: "low",
+          status: "in_progress",
+          progress: 25,
+          assignee: {
+            name: "Alex Wong",
+            avatar: "/placeholder-avatar.png"
+          }
+        })
 
-    // Test task 4: Completed
-    this.createTask({
-      title: "Setup development environment",
-      description: "Configure Docker and development tools",
-      type: "public",
-      priority: "medium",
-      status: "completed",
-      assignee: {
-        name: "Lisa Park",
-        avatar: "/placeholder-avatar.png"
+        this.createTask({
+          title: "Setup development environment",
+          description: "Configure Docker and development tools",
+          type: "public",
+          priority: "medium",
+          status: "completed",
+          progress: 100,
+          assignee: {
+            name: "Lisa Park",
+            avatar: "/placeholder-avatar.png"
+          }
+        })
       }
-    })
-  }
-},
+    },
 
-    createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>) {
+    // Create a new task
+    createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>): Task {
       const newTask: Task = {
         id: this.nextTaskId++,
         title: taskData.title || '',
         description: taskData.description || '',
         type: taskData.type || 'public',
         priority: taskData.priority || 'medium',
-        status: taskData.status || 'not_started',    // Default to not started
-        dueDate: taskData.dueDate || null,          // Default to no due date
-        progress: taskData.progress || 0,            // Default to 0% progress
+        status: taskData.status || 'not_started',
+        dueDate: taskData.dueDate || null,
+        progress: taskData.progress || 0,
         assignee: taskData.assignee || {
           name: 'Current User',
           avatar: '/placeholder-avatar.png'
@@ -157,6 +172,7 @@ export const useTaskStore = defineStore('tasks', {
       return newTask
     },
 
+    // Delete a task and its comments
     deleteTask(taskId: number): boolean {
       const taskIndex = this.tasks.findIndex(t => t.id === taskId)
       if (taskIndex === -1) return false
@@ -167,13 +183,10 @@ export const useTaskStore = defineStore('tasks', {
       return true
     },
 
+    // Toggle like status for a task
     toggleLike(taskId: number, userId: string): void {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) return
-
-      if (!task.likedBy) {
-        task.likedBy = []
-      }
 
       const isLiked = task.likedBy.includes(userId)
       if (isLiked) {
@@ -185,6 +198,7 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
 
+    // Add a comment to a task
     addComment(taskId: number, content: string, author: { name: string, avatar: string }): Comment {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) throw new Error('Task not found')
@@ -202,10 +216,38 @@ export const useTaskStore = defineStore('tasks', {
       task.comments++
 
       return newComment
+    },
+
+    // Update task progress
+    updateTaskProgress(taskId: number, progress: number): boolean {
+      const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+      if (taskIndex === -1) return false
+
+      // Ensure progress is between 0-100
+      const validProgress = Math.min(Math.max(Math.round(progress), 0), 100)
+      
+      // Update the task
+      this.tasks[taskIndex] = {
+        ...this.tasks[taskIndex],
+        progress: validProgress,
+        // Update status based on progress
+        status: this.determineStatus(validProgress)
+      }
+
+      return true
+    },
+
+    // Helper method to determine task status based on progress
+    determineStatus(progress: number): Status {
+      if (progress === 100) return 'completed'
+      if (progress > 0) return 'in_progress'
+      return 'not_started'
     }
   },
 
+  // Enable state persistence
   persist: true
 })
 
+// Export the store type for use in components
 export type TaskStore = ReturnType<typeof useTaskStore>

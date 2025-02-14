@@ -1,78 +1,89 @@
 <!-- components/task/TaskFeed.vue -->
+
 <script setup lang="ts">
 import { useTaskStore } from '~/stores/useTaskStore'
+import type { Task } from '~/stores/useTaskStore'
 
-type BadgeColor = 'gray' | 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink'
-
+// Props definition for determining which tasks to show
 const props = defineProps({
   type: {
-    type: String,
+    type: String as () => 'public' | 'private',
     required: true,
     validator: (value: string) => ['public', 'private'].includes(value)
   }
 })
 
-// Initialize task store
-const taskStore = useTaskStore()
+type BadgeColor = 'red' | 'yellow' | 'green' | 'blue' | 'gray' | undefined;
 
-const getStatusColor = (status: string): BadgeColor => {
-  const colors: Record<string, BadgeColor> = {
-    not_started: 'gray',
+const taskStore = useTaskStore()
+const toast = useToast()
+
+// Create a computed property for tasks that updates reactively
+const tasks = computed(() => {
+  return props.type === 'public' ? taskStore.publicTasks : taskStore.privateTasks
+})
+
+// Helper function to determine status badge color
+const getStatusColor = (status: string): BadgeColor | undefined => {
+  const statusColors: Record<string, BadgeColor> = {
+    not_started: undefined,
     in_progress: 'blue',
     in_review: 'yellow',
     completed: 'green'
   }
-  return colors[status as keyof typeof colors] || 'gray'
+  return statusColors[status]
 }
 
+// Helper function to format status text for display
 const formatStatus = (status: string): string => {
-  return status.split('_')
+  return status
+    .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
 
-// Track loading state for each task
-const deletingTasks = ref(new Set<number>())
+// Progress-related utilities
+const progressConfig = {
+  levels: [
+    { threshold: 75, color: 'green', label: 'Almost there!' },
+    { threshold: 50, color: 'blue', label: 'Good progress' },
+    { threshold: 25, color: 'yellow', label: 'In progress' },
+    /* { threshold: 0, color: 'gray', label: 'Just started' } */
+  ] as const
+}
 
-// Use the appropriate getter based on type
-const tasks = computed(() =>
-  props.type === 'public' ? taskStore.publicTasks : taskStore.privateTasks
-)
+// Get progress information based on current progress value
+const getProgressInfo = (progress: number) => {
+  const level = progressConfig.levels.find(level => progress >= level.threshold) 
+                ?? progressConfig.levels[progressConfig.levels.length - 1]
+  return level
+}
 
-// Handle task deletion
-const handleDeleteTask = async (taskId: number) => {
-  const confirm = window.confirm('Are you sure you want to delete this task? This action cannot be undone.')
-  if (!confirm) return
-
-  deletingTasks.value.add(taskId)
-  const toast = useToast()
-
+// Handle progress updates
+const updateProgress = async (taskId: number, progress: number) => {
   try {
-    const result = await taskStore.deleteTask(taskId)
-    if (result) {
-      toast.add({
-        title: 'Success',
-        description: 'Task has been deleted successfully',
-        color: 'green'
-      })
-    } else {
-      throw new Error('Failed to delete task')
-    }
+    const success = taskStore.updateTaskProgress(taskId, progress)
+    if (!success) throw new Error('Failed to update task progress')
+
+    toast.add({
+      title: 'Progress Updated',
+      description: `Task is now ${progress}% complete`,
+      color: 'green'
+    })
   } catch (error) {
     toast.add({
       title: 'Error',
-      description: 'Failed to delete task. Please try again.',
+      description: 'Could not update task progress',
       color: 'red'
     })
-  } finally {
-    deletingTasks.value.delete(taskId)
   }
 }
 </script>
 
 <template>
   <div class="space-y-4">
-    <UCard v-for="task in tasks" :key="task.id">
+    <UCard v-for="task in tasks" :key="task.id" class="hover:shadow-lg transition-shadow duration-200">
+      <!-- Card Header -->
       <template #header>
         <div class="flex justify-between items-center">
           <div>
@@ -92,13 +103,49 @@ const handleDeleteTask = async (taskId: number) => {
         </div>
       </template>
 
+      <!-- Task Description -->
       <p class="text-gray-600 mb-4">{{ task.description }}</p>
 
+      <!-- Progress Section -->
+      <div v-if="task.status === 'in_progress'" class="mb-4 space-y-2">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600">Progress</span>
+            <UBadge :color="getProgressInfo(task.progress).color" size="sm" variant="subtle">
+              {{ getProgressInfo(task.progress).label }}
+            </UBadge>
+          </div>
+          <span class="text-sm font-medium">{{ task.progress }}%</span>
+        </div>
+
+        <UProgress :value="task.progress" :color="getProgressInfo(task.progress).color" :ui="{
+            base: 'relative w-full',
+            track: 'bg-gray-100 dark:bg-gray-800',
+            bar: 'transition-all ease-in-out duration-300'
+          }" />
+
+        <!-- Progress Update Buttons -->
+        <div class="flex gap-2 mt-2">
+          <UButton v-for="testProgress in [25, 50, 75, 100]" :key="testProgress" size="xs" variant="soft"
+            :color="getProgressInfo(testProgress).color" :disabled="task.progress === testProgress"
+            @click="updateProgress(task.id, testProgress)">
+            {{ testProgress }}%
+          </UButton>
+        </div>
+      </div>
+
+      <!-- Card Footer -->
       <template #footer>
-        <TaskInteractions :task-id="task.id" :likes="task.likes" :comments="task.comments" :assignee="task.assignee" />
+        <div class="flex justify-between items-center">
+          <TaskInteractions :task-id="task.id" :likes="task.likes" :comments="task.comments"
+            :assignee="task.assignee" />
+          <UButton v-if="task.status !== 'completed'" icon="i-heroicons-pencil" color="gray" variant="ghost"
+            size="sm" />
+        </div>
       </template>
     </UCard>
 
+    <!-- Empty State -->
     <div v-if="tasks.length === 0" class="text-center py-8">
       <p class="text-gray-500">No tasks found</p>
     </div>
