@@ -59,6 +59,32 @@ const getProgressInfo = (progress: number) => {
   return level
 }
 
+// Days left calculation and urgency utilities
+const getDaysLeft = (dueDate: string | null): number | null => {
+  if (!dueDate) return null
+  try {
+    const due = new Date(dueDate)
+    const now = new Date()
+    // Set hours to midnight for consistent day calculation
+    due.setHours(0, 0, 0, 0)
+    now.setHours(0, 0, 0, 0)
+    const diffTime = due.getTime() - now.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  } catch (error) {
+    console.error('Error calculating days left:', error)
+    return null
+  }
+}
+
+const getUrgencyInfo = (daysLeft: number | null) => {
+  console.log('Days left:', daysLeft)
+  if (daysLeft === null) return { color: undefined as BadgeColor, label: 'No due date' }
+  if (daysLeft <= 1) return { color: 'red' as BadgeColor, label: `${daysLeft <= 0 ? 'Overdue' : '1 day left'}` }
+  if (daysLeft <= 3) return { color: 'yellow' as BadgeColor, label: `${daysLeft} days left` }
+  if (daysLeft <= 7) return { color: 'blue' as BadgeColor, label: `${daysLeft} days left` }
+  return { color: 'green' as BadgeColor, label: `${daysLeft} days left` }
+}
+
 // Handle progress updates
 const updateProgress = async (taskId: number, progress: number) => {
   try {
@@ -89,6 +115,13 @@ const updateProgress = async (taskId: number, progress: number) => {
           <div>
             <h3 class="font-semibold text-lg">{{ task.title }}</h3>
             <p class="text-sm text-gray-500">Assigned to {{ task.assignee.name }}</p>
+            <!-- Add the due date information below the assignee -->
+            <div v-if="task.dueDate" class="flex items-center gap-2 mt-2">
+              <span class="text-sm text-gray-600">Due:</span>
+              <UBadge :color="getUrgencyInfo(getDaysLeft(task.dueDate)).color" size="sm" class="whitespace-nowrap">
+                {{ getUrgencyInfo(getDaysLeft(task.dueDate)).label }}
+              </UBadge>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <!-- Status Badge -->

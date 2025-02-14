@@ -100,6 +100,7 @@ export const useTaskStore = defineStore('tasks', {
           priority: "medium",
           status: "not_started",
           progress: 0,
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
           assignee: {
             name: "Sarah Chen",
             avatar: "/placeholder-avatar.png"
