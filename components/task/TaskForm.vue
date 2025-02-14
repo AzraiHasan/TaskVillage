@@ -1,32 +1,44 @@
 <!-- components/task/TaskForm.vue -->
+
 <template>
-  <UModal :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
+  <UModal :model-value="modelValue" @update:model-value="handleModalUpdate" @before-leave="handleBeforeLeave">
     <UCard class="w-full max-w-xl">
       <template #header>
         <h3 class="text-lg font-medium">Create New Task</h3>
       </template>
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
-        <UFormGroup label="Title" name="title">
-          <UInput v-model="form.title" placeholder="Enter task title" :ui="{ base: 'w-full' }" />
+        <UFormGroup label="Title" name="title" required>
+          <UInput v-model="formData.title" placeholder="Enter task title" :ui="{ base: 'w-full' }" />
         </UFormGroup>
 
         <UFormGroup label="Description" name="description">
-          <UTextarea v-model="form.description" placeholder="Describe your task..." :rows="3" />
+          <UTextarea v-model="formData.description" placeholder="Describe your task..." :rows="3" />
         </UFormGroup>
 
         <div class="grid grid-cols-2 gap-4">
-          <UFormGroup label="Type" name="type">
-            <USelect v-model="form.type" :options="taskTypeOptions" />
+          <UFormGroup label="Type" name="type" required>
+            <USelect v-model="formData.type" :options="taskTypeOptions" />
           </UFormGroup>
 
-          <UFormGroup label="Priority" name="priority">
-            <USelect v-model="form.priority" :options="priorityOptions" />
+          <UFormGroup label="Priority" name="priority" required>
+            <USelect v-model="formData.priority" :options="priorityOptions" />
           </UFormGroup>
         </div>
 
+        <UFormGroup label="Due Date" name="dueDate">
+          <UPopover :popper="{ placement: 'bottom-start' }">
+            <UButton icon="i-heroicons-calendar-days-20-solid"
+              :label="formData.dueDate ? format(formData.dueDate, 'd MMM, yyyy') : 'Set due date'" />
+            <template #panel="{ close }">
+              <DatePicker v-if="isDatePickerVisible" v-model="formData.dueDate" :min="new Date()"
+                @close="handleDatePickerClose(close)" />
+            </template>
+          </UPopover>
+        </UFormGroup>
+
         <div class="flex justify-end gap-2">
-          <UButton color="gray" variant="ghost" @click="$emit('update:modelValue', false)">
+          <UButton color="gray" variant="ghost" @click="handleCancel">
             Cancel
           </UButton>
           <UButton type="submit" color="primary" :loading="isSubmitting">
@@ -39,25 +51,49 @@
 </template>
 
 <script setup lang="ts">
+import { format } from 'date-fns'
 import { useTaskStore } from '~/stores/useTaskStore'
+import DatePicker from '~/components/ui/DatePicker.vue'
 
-// Define our task types and priorities as const arrays to ensure type safety
+// Define task types and priorities
 const TASK_TYPES = ['public', 'private'] as const
 const PRIORITIES = ['low', 'medium', 'high'] as const
 
-// Create type aliases from our const arrays
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
 
-// Define our form interface to ensure type safety
-interface TaskForm {
+interface FormData {
   title: string
   description: string
   type: TaskType
   priority: Priority
+  dueDate: Date | null
 }
 
-// Create our select options with proper typing
+// Props and emits
+const props = defineProps<{
+  modelValue: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+}>()
+
+// Component state
+const taskStore = useTaskStore()
+const isSubmitting = ref(false)
+const isDatePickerVisible = ref(true)
+
+// Form data with default values
+const formData = ref<FormData>({
+  title: '',
+  description: '',
+  type: 'public',
+  priority: 'medium',
+  dueDate: null
+})
+
+// Select options
 const taskTypeOptions = TASK_TYPES.map(type => ({
   label: type.charAt(0).toUpperCase() + type.slice(1),
   value: type
@@ -68,44 +104,49 @@ const priorityOptions = PRIORITIES.map(priority => ({
   value: priority
 }))
 
-// Props and emits for modal control
-const props = defineProps<{
-  modelValue: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-}>()
-
-// Initialize task store
-const taskStore = useTaskStore()
-
-// Form state with proper typing
-const form = ref<TaskForm>({
-  title: '',
-  description: '',
-  type: 'public',
-  priority: 'medium'
-})
-
-const isSubmitting = ref(false)
-
-// Type guard to ensure type is valid
+// Type guards
 function isValidTaskType(type: string): type is TaskType {
   return TASK_TYPES.includes(type as TaskType)
 }
 
-// Type guard to ensure priority is valid
 function isValidPriority(priority: string): priority is Priority {
   return PRIORITIES.includes(priority as Priority)
 }
 
-// Form handling
+// Event handlers
+const handleModalUpdate = (value: boolean) => {
+  emit('update:modelValue', value)
+}
+
+const handleBeforeLeave = () => {
+  isDatePickerVisible.value = false
+}
+
+const handleDatePickerClose = (close: () => void) => {
+  close()
+}
+
+const handleCancel = () => {
+  resetForm()
+  emit('update:modelValue', false)
+}
+
+const resetForm = () => {
+  formData.value = {
+    title: '',
+    description: '',
+    type: 'public',
+    priority: 'medium',
+    dueDate: null
+  }
+  isDatePickerVisible.value = true
+}
+
+// Form submission
 const handleSubmit = async () => {
-  if (!form.value.title.trim()) return
+  if (!formData.value.title.trim()) return
   
-  // Validate type and priority
-  if (!isValidTaskType(form.value.type) || !isValidPriority(form.value.priority)) {
+  if (!isValidTaskType(formData.value.type) || !isValidPriority(formData.value.priority)) {
     const toast = useToast()
     toast.add({
       title: 'Invalid Input',
@@ -119,37 +160,28 @@ const handleSubmit = async () => {
   const toast = useToast()
 
   try {
-    // Create new task using the store with proper typing
     const newTask = {
-      title: form.value.title,
-      description: form.value.description,
-      type: form.value.type, // TypeScript now knows this is "public" | "private"
-      priority: form.value.priority, // TypeScript now knows this is "low" | "medium" | "high"
+      title: formData.value.title,
+      description: formData.value.description,
+      type: formData.value.type,
+      priority: formData.value.priority,
+      dueDate: formData.value.dueDate?.toISOString() || null,
       assignee: {
         name: 'Current User',
         avatar: '/placeholder-avatar.png'
-      },
-      likes: 0,
-      likedBy: [],
-      comments: 0
+      }
     }
     
     await taskStore.createTask(newTask)
 
     toast.add({
-      title: 'Task Created',
-      description: 'Your task has been successfully created',
+      title: 'Success',
+      description: 'Task created successfully',
       color: 'green'
     })
 
-    // Close modal and reset form
+    resetForm()
     emit('update:modelValue', false)
-    form.value = {
-      title: '',
-      description: '',
-      type: 'public',
-      priority: 'medium'
-    }
   } catch (error) {
     toast.add({
       title: 'Error',
@@ -161,4 +193,9 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+// Cleanup on component unmount
+onBeforeUnmount(() => {
+  isDatePickerVisible.value = false
+})
 </script>

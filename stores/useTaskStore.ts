@@ -1,15 +1,14 @@
 // stores/useTaskStore.ts
 import { defineStore } from 'pinia'
 
-// Define our valid types and priorities as const arrays
 const TASK_TYPES = ['public', 'private'] as const
 const PRIORITIES = ['low', 'medium', 'high'] as const
+const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
 
-// Create type aliases from our const arrays
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
+type Status = typeof STATUSES[number]
 
-// Interface definitions with proper typing
 interface Comment {
   id: number
   taskId: number
@@ -28,6 +27,9 @@ interface Task {
   description: string
   type: TaskType
   priority: Priority
+  status: Status
+  dueDate: string | null
+  progress: number 
   assignee: {
     name: string
     avatar: string
@@ -38,7 +40,6 @@ interface Task {
   createdAt: string
 }
 
-// Define the store state interface
 interface TaskState {
   tasks: Task[]
   comments: Comment[]
@@ -46,7 +47,6 @@ interface TaskState {
   nextCommentId: number
 }
 
-// Store definition with explicit action and getter types
 export const useTaskStore = defineStore('tasks', {
   state: (): TaskState => ({
     tasks: [],
@@ -76,23 +76,63 @@ export const useTaskStore = defineStore('tasks', {
   },
 
   actions: {
-    // Initialize store with sample data if needed
     initializeStore() {
-      if (this.tasks.length === 0) {
-        this.createTask({
-          title: "Update landing page design",
-          description: "Implement new hero section with enhanced visual appeal",
-          type: "public",
-          priority: "high",
-          assignee: {
-            name: "Sarah Chen",
-            avatar: "/placeholder-avatar.png"
-          }
-        })
+  // Only add sample data if the store is empty
+  if (this.tasks.length === 0) {
+    // Test task 1: Not Started
+    this.createTask({
+      title: "Design new landing page",
+      description: "Create wireframes and mockups for the homepage redesign",
+      type: "public",
+      priority: "medium",
+      status: "not_started",
+      assignee: {
+        name: "Sarah Chen",
+        avatar: "/placeholder-avatar.png"
       }
-    },
+    })
 
-    // Create a new task
+    // Test task 2: In Progress
+    this.createTask({
+      title: "Implement user authentication",
+      description: "Set up OAuth and JWT authentication flow",
+      type: "public",
+      priority: "high",
+      status: "in_progress",
+      assignee: {
+        name: "Mike Johnson",
+        avatar: "/placeholder-avatar.png"
+      }
+    })
+
+    // Test task 3: In Review
+    this.createTask({
+      title: "Write API documentation",
+      description: "Document all endpoints and request/response formats",
+      type: "public",
+      priority: "low",
+      status: "in_review",
+      assignee: {
+        name: "Alex Wong",
+        avatar: "/placeholder-avatar.png"
+      }
+    })
+
+    // Test task 4: Completed
+    this.createTask({
+      title: "Setup development environment",
+      description: "Configure Docker and development tools",
+      type: "public",
+      priority: "medium",
+      status: "completed",
+      assignee: {
+        name: "Lisa Park",
+        avatar: "/placeholder-avatar.png"
+      }
+    })
+  }
+},
+
     createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>) {
       const newTask: Task = {
         id: this.nextTaskId++,
@@ -100,6 +140,9 @@ export const useTaskStore = defineStore('tasks', {
         description: taskData.description || '',
         type: taskData.type || 'public',
         priority: taskData.priority || 'medium',
+        status: taskData.status || 'not_started',    // Default to not started
+        dueDate: taskData.dueDate || null,          // Default to no due date
+        progress: taskData.progress || 0,            // Default to 0% progress
         assignee: taskData.assignee || {
           name: 'Current User',
           avatar: '/placeholder-avatar.png'
@@ -114,7 +157,6 @@ export const useTaskStore = defineStore('tasks', {
       return newTask
     },
 
-    // Delete a task and its comments
     deleteTask(taskId: number): boolean {
       const taskIndex = this.tasks.findIndex(t => t.id === taskId)
       if (taskIndex === -1) return false
@@ -125,7 +167,6 @@ export const useTaskStore = defineStore('tasks', {
       return true
     },
 
-    // Toggle like status for a task
     toggleLike(taskId: number, userId: string): void {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) return
@@ -144,7 +185,6 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
 
-    // Add a comment to a task
     addComment(taskId: number, content: string, author: { name: string, avatar: string }): Comment {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) throw new Error('Task not found')
@@ -168,5 +208,4 @@ export const useTaskStore = defineStore('tasks', {
   persist: true
 })
 
-// Export type for use in components
 export type TaskStore = ReturnType<typeof useTaskStore>
