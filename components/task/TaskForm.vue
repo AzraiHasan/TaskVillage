@@ -9,7 +9,7 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <UFormGroup label="Title" name="title" required>
-          <UInput v-model="formData.title" placeholder="Enter task title" :ui="{ base: 'w-full' }" />
+          <UInput v-model="formData.title" placeholder="Enter task title" />
         </UFormGroup>
 
         <UFormGroup label="Description" name="description">
@@ -24,7 +24,13 @@
           <UFormGroup label="Priority" name="priority" required>
             <USelect v-model="formData.priority" :options="priorityOptions" />
           </UFormGroup>
+
         </div>
+
+        <UFormGroup label="Workspace" name="workspace" required>
+          <USelect v-model="workspaceIdValue" :options="workspaces" option-attribute="name" value-attribute="id"
+            placeholder="Select Workspace" />
+        </UFormGroup>
 
         <UFormGroup label="Due Date" name="dueDate">
           <UPopover :popper="{ placement: 'bottom-start' }">
@@ -54,6 +60,7 @@
 import { format } from 'date-fns'
 import { useTaskStore } from '~/stores/useTaskStore'
 import DatePicker from '~/components/ui/DatePicker.vue'
+import { UFormGroup } from '#components'
 
 // Define task types and priorities
 const TASK_TYPES = ['public', 'private'] as const
@@ -62,12 +69,13 @@ const PRIORITIES = ['low', 'medium', 'high'] as const
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
 
-interface FormData {
+interface TaskFormData {
   title: string
   description: string
   type: TaskType
   priority: Priority
   dueDate: Date | null
+  workspaceId: number | null
 }
 
 // Props and emits
@@ -84,14 +92,23 @@ const taskStore = useTaskStore()
 const isSubmitting = ref(false)
 const isDatePickerVisible = ref(true)
 
+const workspaceIdValue = computed(() => formData.value.workspaceId !== null ? formData.value.workspaceId : '')
+
 // Form data with default values
-const formData = ref<FormData>({
+const formData = ref<TaskFormData>({
   title: '',
   description: '',
   type: 'public',
   priority: 'medium',
-  dueDate: null
+  dueDate: null,
+  workspaceId: null
 })
+
+// Same sample workspaces for demonstration
+const workspaces = ref([
+  { id: 1, name: 'Marketing Team' },
+  { id: 2, name: 'Development Team' }
+])
 
 // Select options
 const taskTypeOptions = TASK_TYPES.map(type => ({
@@ -137,14 +154,15 @@ const resetForm = () => {
     description: '',
     type: 'public',
     priority: 'medium',
-    dueDate: null
+    dueDate: null,
+    workspaceId: null
   }
   isDatePickerVisible.value = true
 }
 
 // Form submission
 const handleSubmit = async () => {
-  if (!formData.value.title.trim()) return
+   if (!formData.value.title.trim() || !formData.value.workspaceId) return
   
   if (!isValidTaskType(formData.value.type) || !isValidPriority(formData.value.priority)) {
     const toast = useToast()

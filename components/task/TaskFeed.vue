@@ -1,46 +1,54 @@
 <!-- components/task/TaskFeed.vue -->
 
 <script setup lang="ts">
-import { useTaskStore } from '~/stores/useTaskStore'
+import { useTaskStore, STATUSES, PRIORITIES } from '~/stores/useTaskStore'
 import type { Task } from '~/stores/useTaskStore'
 
-// Props definition for determining which tasks to show
-const props = defineProps({
-  type: {
-    type: String as () => 'public' | 'private',
-    required: true,
-    validator: (value: string) => ['public', 'private'].includes(value)
-  }
-})
-
-type BadgeColor = 'red' | 'yellow' | 'green' | 'blue' | 'gray' | undefined;
+// Define our types from the constants
+type Status = typeof STATUSES[number]
+type Priority = typeof PRIORITIES[number]
 
 const taskStore = useTaskStore()
-const toast = useToast()
 
-// Create a computed property for tasks that updates reactively
-const tasks = computed(() => {
-  return props.type === 'public' ? taskStore.publicTasks : taskStore.privateTasks
+// Create a reactive filters object
+const filters = reactive({
+  status: '' as Status | '',
+  priority: '' as Priority | ''
 })
 
-// Helper function to determine status badge color
-const getStatusColor = (status: string): BadgeColor | undefined => {
-  const statusColors: Record<string, BadgeColor> = {
-    not_started: undefined,
-    in_progress: 'blue',
-    in_review: 'yellow',
-    completed: 'green'
-  }
-  return statusColors[status]
-}
+// Watch for filter changes and update the store
+watch(filters, (newFilters) => {
+  taskStore.updateFilters({
+    status: newFilters.status || null,
+    priority: newFilters.priority || null
+  })
+}, { deep: true })
 
-// Helper function to format status text for display
-const formatStatus = (status: string): string => {
-  return status
+// Status options for the select
+const statusOptions = STATUSES.map(status => ({
+  label: status
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
+    .join(' '),
+  value: status
+}))
+
+// Priority options for the select
+const priorityOptions = PRIORITIES.map(priority => ({
+  label: priority.charAt(0).toUpperCase() + priority.slice(1),
+  value: priority
+}))
+
+// Use the filteredTasks getter from our store
+const filteredTasks = computed(() => taskStore.filteredTasks)
+
+// Computed message for workspace context
+const workspaceMessage = computed(() => {
+  if (!taskStore.workspaceId) {
+    return 'Please select a workspace'
+  }
+  return 'No tasks in this workspace'
+})
 
 // Progress-related utilities
 const progressConfig = {
@@ -48,14 +56,13 @@ const progressConfig = {
     { threshold: 75, color: 'green', label: 'Almost there!' },
     { threshold: 50, color: 'blue', label: 'Good progress' },
     { threshold: 25, color: 'yellow', label: 'In progress' },
-    /* { threshold: 0, color: 'gray', label: 'Just started' } */
   ] as const
 }
 
 // Get progress information based on current progress value
 const getProgressInfo = (progress: number) => {
   const level = progressConfig.levels.find(level => progress >= level.threshold) 
-                ?? progressConfig.levels[progressConfig.levels.length - 1]
+                ?? { threshold: 0, color: 'sky' as const, label: 'Just started' }
   return level
 }
 
@@ -77,7 +84,6 @@ const getDaysLeft = (dueDate: string | null): number | null => {
 }
 
 const getUrgencyInfo = (daysLeft: number | null) => {
-  console.log('Days left:', daysLeft)
   if (daysLeft === null) return { color: undefined as BadgeColor, label: 'No due date' }
   if (daysLeft <= 1) return { color: 'red' as BadgeColor, label: `${daysLeft <= 0 ? 'Overdue' : '1 day left'}` }
   if (daysLeft <= 3) return { color: 'yellow' as BadgeColor, label: `${daysLeft} days left` }
@@ -88,15 +94,17 @@ const getUrgencyInfo = (daysLeft: number | null) => {
 // Handle progress updates
 const updateProgress = async (taskId: number, progress: number) => {
   try {
-    const success = taskStore.updateTaskProgress(taskId, progress)
+    const success = await taskStore.updateTaskProgress(taskId, progress)
     if (!success) throw new Error('Failed to update task progress')
 
+    const toast = useToast()
     toast.add({
       title: 'Progress Updated',
       description: `Task is now ${progress}% complete`,
       color: 'green'
     })
   } catch (error) {
+    const toast = useToast()
     toast.add({
       title: 'Error',
       description: 'Could not update task progress',
@@ -104,11 +112,38 @@ const updateProgress = async (taskId: number, progress: number) => {
     })
   }
 }
+
+type BadgeColor = 'red' | 'yellow' | 'green' | 'blue' | 'gray' | undefined;
+
+// Helper function to determine status badge color
+const getStatusColor = (status: string): BadgeColor => {
+  const statusColors: Record<string, BadgeColor> = {
+    not_started: undefined,
+    in_progress: 'blue',
+    in_review: 'yellow',
+    completed: 'green'
+  }
+  return statusColors[status]
+}
+
+// Helper function to format status text for display
+const formatStatus = (status: string): string => {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
 </script>
 
 <template>
   <div class="space-y-4">
-    <UCard v-for="task in tasks" :key="task.id" class="hover:shadow-lg transition-shadow duration-200">
+    <!-- Add workspace filtering UI -->
+    <div class="flex space-x-4 mb-4">
+      <USelect v-model="filters.status" :options="statusOptions" placeholder="Filter by Status" />
+      <USelect v-model="filters.priority" :options="priorityOptions" placeholder="Filter by Priority" />
+    </div>
+
+    <UCard v-for="task in filteredTasks" :key="task.id" class="hover:shadow-lg transition-shadow duration-200">
       <!-- Card Header -->
       <template #header>
         <div class="flex justify-between items-center">
@@ -178,9 +213,11 @@ const updateProgress = async (taskId: number, progress: number) => {
       </template>
     </UCard>
 
-    <!-- Empty State -->
-    <div v-if="tasks.length === 0" class="text-center py-8">
-      <p class="text-gray-500">No tasks found</p>
+    <!-- Empty state with workspace context -->
+    <div v-if="filteredTasks.length === 0" class="text-center py-8">
+      <p class="text-gray-500">
+        {{ workspaceMessage }}
+      </p>
     </div>
   </div>
 </template>

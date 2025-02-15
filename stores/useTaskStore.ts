@@ -2,9 +2,9 @@
 import { defineStore } from 'pinia'
 
 // Define our type constants to ensure consistency throughout the store
-const TASK_TYPES = ['public', 'private'] as const
-const PRIORITIES = ['low', 'medium', 'high'] as const
-const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
+export const TASK_TYPES = ['public', 'private'] as const
+export const PRIORITIES = ['low', 'medium', 'high'] as const
+export const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
 
 // Type definitions using the constants above
 type TaskType = typeof TASK_TYPES[number]
@@ -24,7 +24,7 @@ export interface Comment {
   taskType: TaskType
 }
 
-// Define the structure for tasks
+// Define the structure for tasks, now including workspace context
 export interface Task {
   id: number
   title: string
@@ -42,6 +42,7 @@ export interface Task {
   likedBy: string[]
   comments: number
   createdAt: string
+  workspaceId: number | null  // Now required, not optional
 }
 
 // Define the structure for our store's state
@@ -50,19 +51,29 @@ interface TaskState {
   comments: Comment[]
   nextTaskId: number
   nextCommentId: number
+  workspaceId: number | null
+  taskFilters: {
+    status: Status | null
+    priority: Priority | null
+    assignee: string | null
+  }
 }
 
 // Create and export the store
 export const useTaskStore = defineStore('tasks', {
-  // Initialize the state with empty arrays and starting IDs
   state: (): TaskState => ({
     tasks: [],
     comments: [],
     nextTaskId: 1,
-    nextCommentId: 1
+    nextCommentId: 1,
+    workspaceId: null,
+    taskFilters: {
+      status: null,
+      priority: null,
+      assignee: null
+    }
   }),
 
-  // Getters for accessing and filtering tasks
   getters: {
     // Get all public tasks
     publicTasks: (state): Task[] => 
@@ -84,15 +95,44 @@ export const useTaskStore = defineStore('tasks', {
       return state.comments.filter(comment => 
         comment.taskId === taskId && comment.taskType === task.type
       )
+    },
+
+    // Get tasks for current workspace
+    currentWorkspaceTasks: (state): Task[] => {
+      if (!state.workspaceId) return []
+      return state.tasks.filter(task => task.workspaceId === state.workspaceId)
+    },
+
+    // Get filtered tasks based on current filters and workspace
+    filteredTasks: (state) => {
+      let filtered = state.workspaceId 
+        ? state.tasks.filter(task => task.workspaceId === state.workspaceId)
+        : state.tasks
+
+      if (state.taskFilters.status) {
+        filtered = filtered.filter(task => task.status === state.taskFilters.status)
+      }
+
+      if (state.taskFilters.priority) {
+        filtered = filtered.filter(task => task.priority === state.taskFilters.priority)
+      }
+
+      if (state.taskFilters.assignee) {
+        filtered = filtered.filter(task => task.assignee.name === state.taskFilters.assignee)
+      }
+
+      return filtered
     }
   },
 
-  // Actions for modifying the store's state
   actions: {
     // Initialize the store with sample data
     initializeStore() {
       if (this.tasks.length === 0) {
-        // Sample tasks demonstrating different states and progress levels
+        // Sample workspace IDs for demonstration
+        const workspace1 = 1
+        const workspace2 = 2
+
         this.createTask({
           title: "Design new landing page",
           description: "Create wireframes and mockups for the homepage redesign",
@@ -100,11 +140,12 @@ export const useTaskStore = defineStore('tasks', {
           priority: "medium",
           status: "not_started",
           progress: 0,
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
           assignee: {
             name: "Sarah Chen",
             avatar: "/placeholder-avatar.png"
-          }
+          },
+          workspaceId: workspace1
         })
 
         this.createTask({
@@ -117,7 +158,8 @@ export const useTaskStore = defineStore('tasks', {
           assignee: {
             name: "Mike Johnson",
             avatar: "/placeholder-avatar.png"
-          }
+          },
+          workspaceId: workspace1
         })
 
         this.createTask({
@@ -130,7 +172,8 @@ export const useTaskStore = defineStore('tasks', {
           assignee: {
             name: "Alex Wong",
             avatar: "/placeholder-avatar.png"
-          }
+          },
+          workspaceId: workspace2
         })
 
         this.createTask({
@@ -143,12 +186,13 @@ export const useTaskStore = defineStore('tasks', {
           assignee: {
             name: "Lisa Park",
             avatar: "/placeholder-avatar.png"
-          }
+          },
+          workspaceId: workspace2
         })
       }
     },
 
-    // Create a new task
+    // Create a new task with workspace context
     createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>): Task {
       const newTask: Task = {
         id: this.nextTaskId++,
@@ -166,14 +210,33 @@ export const useTaskStore = defineStore('tasks', {
         likes: 0,
         likedBy: [],
         comments: 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        workspaceId: taskData.workspaceId || this.workspaceId || null
       }
       
       this.tasks.unshift(newTask)
       return newTask
     },
 
-    // Delete a task and its comments
+    // Set current workspace and reset filters
+    setWorkspace(workspaceId: number | null) {
+      this.workspaceId = workspaceId
+      this.taskFilters = {
+        status: null,
+        priority: null,
+        assignee: null
+      }
+    },
+
+    // Update task filters
+    updateFilters(filters: Partial<TaskState['taskFilters']>) {
+      this.taskFilters = {
+        ...this.taskFilters,
+        ...filters
+      }
+    },
+
+    // Existing actions remain unchanged
     deleteTask(taskId: number): boolean {
       const taskIndex = this.tasks.findIndex(t => t.id === taskId)
       if (taskIndex === -1) return false
@@ -184,7 +247,6 @@ export const useTaskStore = defineStore('tasks', {
       return true
     },
 
-    // Toggle like status for a task
     toggleLike(taskId: number, userId: string): void {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) return
@@ -199,7 +261,6 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
 
-    // Add a comment to a task
     addComment(taskId: number, content: string, author: { name: string, avatar: string }): Comment {
       const task = this.tasks.find(t => t.id === taskId)
       if (!task) throw new Error('Task not found')
@@ -219,26 +280,21 @@ export const useTaskStore = defineStore('tasks', {
       return newComment
     },
 
-    // Update task progress
     updateTaskProgress(taskId: number, progress: number): boolean {
       const taskIndex = this.tasks.findIndex(t => t.id === taskId)
       if (taskIndex === -1) return false
 
-      // Ensure progress is between 0-100
       const validProgress = Math.min(Math.max(Math.round(progress), 0), 100)
       
-      // Update the task
       this.tasks[taskIndex] = {
         ...this.tasks[taskIndex],
         progress: validProgress,
-        // Update status based on progress
         status: this.determineStatus(validProgress)
       }
 
       return true
     },
 
-    // Helper method to determine task status based on progress
     determineStatus(progress: number): Status {
       if (progress === 100) return 'completed'
       if (progress > 0) return 'in_progress'
@@ -246,9 +302,7 @@ export const useTaskStore = defineStore('tasks', {
     }
   },
 
-  // Enable state persistence
   persist: true
 })
 
-// Export the store type for use in components
 export type TaskStore = ReturnType<typeof useTaskStore>
