@@ -1,17 +1,15 @@
 // stores/useTaskStore.ts
 import { defineStore } from 'pinia'
+import { useUser } from '~/composables/useUser'
 
-// Define our type constants to ensure consistency throughout the store
 export const TASK_TYPES = ['public', 'private'] as const
 export const PRIORITIES = ['low', 'medium', 'high'] as const
 export const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
 
-// Type definitions using the constants above
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
 type Status = typeof STATUSES[number]
 
-// Define the structure for comments on tasks
 export interface Comment {
   id: number
   taskId: number
@@ -24,7 +22,6 @@ export interface Comment {
   taskType: TaskType
 }
 
-// Define the structure for tasks, now including workspace context
 export interface Task {
   id: number
   title: string
@@ -42,10 +39,9 @@ export interface Task {
   likedBy: string[]
   comments: number
   createdAt: string
-  workspaceId: number | null  // Now required, not optional
+  workspaceId: number | null
 }
 
-// Define the structure for our store's state
 interface TaskState {
   tasks: Task[]
   comments: Comment[]
@@ -59,7 +55,6 @@ interface TaskState {
   }
 }
 
-// Create and export the store
 export const useTaskStore = defineStore('tasks', {
   state: (): TaskState => ({
     tasks: [],
@@ -75,19 +70,21 @@ export const useTaskStore = defineStore('tasks', {
   }),
 
   getters: {
-    // Get all public tasks
     publicTasks: (state): Task[] => 
-      state.tasks.filter(task => task.type === 'public'),
+      state.tasks.filter(task => 
+        task.type === 'public' && 
+        task.workspaceId === state.workspaceId
+      ),
     
-    // Get all private tasks
     privateTasks: (state): Task[] =>
-      state.tasks.filter(task => task.type === 'private'),
+      state.tasks.filter(task => 
+        task.type === 'private' && 
+        task.workspaceId === state.workspaceId
+      ),
     
-    // Get a specific task by ID
     getTaskById: (state) => (id: number): Task | undefined =>
       state.tasks.find(task => task.id === id),
     
-    // Get comments for a specific task
     getCommentsByTaskId: (state) => (taskId: number): Comment[] => {
       const task = state.tasks.find(t => t.id === taskId)
       if (!task) return []
@@ -97,13 +94,6 @@ export const useTaskStore = defineStore('tasks', {
       )
     },
 
-    // Get tasks for current workspace
-    currentWorkspaceTasks: (state): Task[] => {
-      if (!state.workspaceId) return []
-      return state.tasks.filter(task => task.workspaceId === state.workspaceId)
-    },
-
-    // Get filtered tasks based on current filters and workspace
     filteredTasks: (state) => {
       let filtered = state.workspaceId 
         ? state.tasks.filter(task => task.workspaceId === state.workspaceId)
@@ -126,40 +116,31 @@ export const useTaskStore = defineStore('tasks', {
   },
 
   actions: {
-    // Initialize the store with sample data
     initializeStore() {
+      const { getCurrentUser } = useUser()
+      const currentUser = getCurrentUser()
+      
+      console.log('Initializing task store with user:', currentUser)
+      
+      if (!currentUser) {
+        console.warn('No user found during store initialization')
+        return
+      }
+      
       if (this.tasks.length === 0) {
-        // Sample workspace IDs for demonstration
-        const workspace1 = 1
-        const workspace2 = 2
-
+        console.log('Creating initial tasks...')
         this.createTask({
-          title: "Design new landing page",
-          description: "Create wireframes and mockups for the homepage redesign",
+          title: "Setup development environment",
+          description: "Configure Docker and development tools",
           type: "public",
           priority: "medium",
-          status: "not_started",
-          progress: 0,
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          status: "completed",
+          progress: 100,
           assignee: {
-            name: "Sarah Chen",
-            avatar: "/placeholder-avatar.png"
+            name: currentUser.name,
+            avatar: currentUser.avatar
           },
-          workspaceId: workspace1
-        })
-
-        this.createTask({
-          title: "Implement user authentication",
-          description: "Set up OAuth and JWT authentication flow",
-          type: "public",
-          priority: "high",
-          status: "in_progress",
-          progress: 75,
-          assignee: {
-            name: "Mike Johnson",
-            avatar: "/placeholder-avatar.png"
-          },
-          workspaceId: workspace1
+          workspaceId: 1
         })
 
         this.createTask({
@@ -170,30 +151,25 @@ export const useTaskStore = defineStore('tasks', {
           status: "in_progress",
           progress: 25,
           assignee: {
-            name: "Alex Wong",
-            avatar: "/placeholder-avatar.png"
+            name: currentUser.name,
+            avatar: currentUser.avatar
           },
-          workspaceId: workspace2
+          workspaceId: 1
         })
-
-        this.createTask({
-          title: "Setup development environment",
-          description: "Configure Docker and development tools",
-          type: "public",
-          priority: "medium",
-          status: "completed",
-          progress: 100,
-          assignee: {
-            name: "Lisa Park",
-            avatar: "/placeholder-avatar.png"
-          },
-          workspaceId: workspace2
-        })
+        console.log('Initial tasks created:', this.tasks)
       }
     },
 
-    // Create a new task with workspace context
     createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>): Task {
+      const { getCurrentUser } = useUser()
+      const currentUser = getCurrentUser()
+      
+     console.log('Creating new task with user:', currentUser)
+      
+      if (!currentUser) {
+      throw new Error('No user found while creating task')
+      }
+      
       const newTask: Task = {
         id: this.nextTaskId++,
         title: taskData.title || '',
@@ -203,9 +179,9 @@ export const useTaskStore = defineStore('tasks', {
         status: taskData.status || 'not_started',
         dueDate: taskData.dueDate || null,
         progress: taskData.progress || 0,
-        assignee: taskData.assignee || {
-          name: 'Current User',
-          avatar: '/placeholder-avatar.png'
+        assignee: {
+          name: currentUser.name,
+          avatar: currentUser.avatar
         },
         likes: 0,
         likedBy: [],
@@ -214,11 +190,11 @@ export const useTaskStore = defineStore('tasks', {
         workspaceId: taskData.workspaceId || this.workspaceId || null
       }
       
+      console.log('New task created:', newTask)
       this.tasks.unshift(newTask)
       return newTask
     },
 
-    // Set current workspace and reset filters
     setWorkspace(workspaceId: number | null) {
       this.workspaceId = workspaceId
       this.taskFilters = {
@@ -228,23 +204,11 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
 
-    // Update task filters
     updateFilters(filters: Partial<TaskState['taskFilters']>) {
       this.taskFilters = {
         ...this.taskFilters,
         ...filters
       }
-    },
-
-    // Existing actions remain unchanged
-    deleteTask(taskId: number): boolean {
-      const taskIndex = this.tasks.findIndex(t => t.id === taskId)
-      if (taskIndex === -1) return false
-
-      this.tasks = this.tasks.filter(t => t.id !== taskId)
-      this.comments = this.comments.filter(c => c.taskId !== taskId)
-      
-      return true
     },
 
     toggleLike(taskId: number, userId: string): void {
@@ -281,16 +245,13 @@ export const useTaskStore = defineStore('tasks', {
     },
 
     updateTaskProgress(taskId: number, progress: number): boolean {
-      const taskIndex = this.tasks.findIndex(t => t.id === taskId)
-      if (taskIndex === -1) return false
+      const task = this.tasks.find(t => t.id === taskId)
+      if (!task) return false
 
       const validProgress = Math.min(Math.max(Math.round(progress), 0), 100)
       
-      this.tasks[taskIndex] = {
-        ...this.tasks[taskIndex],
-        progress: validProgress,
-        status: this.determineStatus(validProgress)
-      }
+      task.progress = validProgress
+      task.status = this.determineStatus(validProgress)
 
       return true
     },
@@ -304,5 +265,3 @@ export const useTaskStore = defineStore('tasks', {
 
   persist: true
 })
-
-export type TaskStore = ReturnType<typeof useTaskStore>

@@ -1,5 +1,4 @@
 <!-- components/task/TaskForm.vue -->
-
 <template>
   <UModal :model-value="modelValue" @update:model-value="handleModalUpdate" @before-leave="handleBeforeLeave">
     <UCard class="w-full max-w-xl">
@@ -24,7 +23,6 @@
           <UFormGroup label="Priority" name="priority" required>
             <USelect v-model="formData.priority" :options="priorityOptions" />
           </UFormGroup>
-
         </div>
 
         <UFormGroup label="Workspace" name="workspace" required>
@@ -34,8 +32,7 @@
 
         <UFormGroup label="Due Date" name="dueDate">
           <UPopover :popper="{ placement: 'bottom-start' }">
-            <UButton icon="i-heroicons-calendar-days-20-solid"
-              :label="formData.dueDate ? format(formData.dueDate, 'd MMM, yyyy') : 'Set due date'" />
+            <UButton icon="i-heroicons-calendar-days-20-solid" :label="formattedDueDate" />
             <template #panel="{ close }">
               <DatePicker v-if="isDatePickerVisible" v-model="formData.dueDate" :min="new Date()"
                 @close="handleDatePickerClose(close)" />
@@ -57,14 +54,10 @@
 </template>
 
 <script setup lang="ts">
-import { format } from 'date-fns'
-import { useTaskStore } from '~/stores/useTaskStore'
+import { format, parseISO } from 'date-fns'
+import { useTaskStore, TASK_TYPES, PRIORITIES } from '~/stores/useTaskStore'
+import { useUser } from '~/composables/useUser'
 import DatePicker from '~/components/ui/DatePicker.vue'
-import { UFormGroup } from '#components'
-
-// Define task types and priorities
-const TASK_TYPES = ['public', 'private'] as const
-const PRIORITIES = ['low', 'medium', 'high'] as const
 
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
@@ -78,7 +71,6 @@ interface TaskFormData {
   workspaceId: number | null
 }
 
-// Props and emits
 const props = defineProps<{
   modelValue: boolean
 }>()
@@ -87,14 +79,22 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-// Component state
 const taskStore = useTaskStore()
 const isSubmitting = ref(false)
 const isDatePickerVisible = ref(true)
 
 const workspaceIdValue = computed(() => formData.value.workspaceId !== null ? formData.value.workspaceId : '')
 
-// Form data with default values
+const formattedDueDate = computed(() => {
+  if (!formData.value.dueDate) return 'Set due date'
+  try {
+    return format(formData.value.dueDate, 'd MMM, yyyy')
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return 'Set due date'
+  }
+})
+
 const formData = ref<TaskFormData>({
   title: '',
   description: '',
@@ -104,13 +104,11 @@ const formData = ref<TaskFormData>({
   workspaceId: null
 })
 
-// Same sample workspaces for demonstration
 const workspaces = ref([
   { id: 1, name: 'Marketing Team' },
   { id: 2, name: 'Development Team' }
 ])
 
-// Select options
 const taskTypeOptions = TASK_TYPES.map(type => ({
   label: type.charAt(0).toUpperCase() + type.slice(1),
   value: type
@@ -121,7 +119,6 @@ const priorityOptions = PRIORITIES.map(priority => ({
   value: priority
 }))
 
-// Type guards
 function isValidTaskType(type: string): type is TaskType {
   return TASK_TYPES.includes(type as TaskType)
 }
@@ -130,7 +127,6 @@ function isValidPriority(priority: string): priority is Priority {
   return PRIORITIES.includes(priority as Priority)
 }
 
-// Event handlers
 const handleModalUpdate = (value: boolean) => {
   emit('update:modelValue', value)
 }
@@ -160,10 +156,12 @@ const resetForm = () => {
   isDatePickerVisible.value = true
 }
 
-// Form submission
 const handleSubmit = async () => {
-   if (!formData.value.title.trim() || !formData.value.workspaceId) return
+  if (!formData.value.title.trim() || !formData.value.workspaceId) return
   
+  const { user } = useUser()
+  if (!user.value) return
+
   if (!isValidTaskType(formData.value.type) || !isValidPriority(formData.value.priority)) {
     const toast = useToast()
     toast.add({
@@ -184,8 +182,9 @@ const handleSubmit = async () => {
       type: formData.value.type,
       priority: formData.value.priority,
       dueDate: formData.value.dueDate?.toISOString() || null,
+      workspaceId: formData.value.workspaceId,
       assignee: {
-        name: 'Current User',
+        name: 'Sarah Chen',
         avatar: '/placeholder-avatar.png'
       }
     }
@@ -212,7 +211,6 @@ const handleSubmit = async () => {
   }
 }
 
-// Cleanup on component unmount
 onBeforeUnmount(() => {
   isDatePickerVisible.value = false
 })

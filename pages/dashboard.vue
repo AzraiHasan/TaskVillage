@@ -1,9 +1,8 @@
-<!-- pages/dashboard -->
-
 <!-- pages/dashboard.vue -->
 <template>
   <UContainer>
     <div class="min-h-screen">
+      <!-- Header -->
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center gap-4">
           <h1 class="text-xl font-bold">Task Village</h1>
@@ -18,7 +17,13 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-12 gap-6 mt-6">
+      <!-- Workspace Selector -->
+      <div class="mt-4 mb-6">
+        <WorkspaceSelector />
+      </div>
+
+      <!-- Main Content -->
+      <div class="grid grid-cols-12 gap-6">
         <div class="col-span-3">
           <UCard>
             <UVerticalNavigation :items="navigationItems" />
@@ -40,14 +45,15 @@
 </template>
 
 <script setup>
-// State management for the task form
+import { useTaskStore } from '~/stores/useTaskStore'
+
+const taskStore = useTaskStore()
 const isTaskFormOpen = ref(false)
 
 const openTaskForm = () => {
   isTaskFormOpen.value = true
 }
 
-// Rest of your existing code for navigation items, tabs, etc.
 const navigationItems = [
   {
     label: 'Feed',
@@ -82,4 +88,9 @@ const activeTab = ref('public')
 const handleTabChange = (index) => {
   activeTab.value = index === 0 ? 'public' : 'private'
 }
+
+// Set initial workspace
+onMounted(() => {
+  taskStore.setWorkspace(1) // Set to first workspace by default
+})
 </script>
