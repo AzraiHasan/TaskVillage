@@ -1,7 +1,8 @@
 // stores/useTaskStore.ts
 import { defineStore } from 'pinia'
-import { useUser } from '~/composables/useUser'
+import { TaskVillageError, ErrorCode } from '~/types/errors'
 
+// Maintain existing type constants
 export const TASK_TYPES = ['public', 'private'] as const
 export const PRIORITIES = ['low', 'medium', 'high'] as const
 export const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
@@ -53,6 +54,8 @@ interface TaskState {
     priority: Priority | null
     assignee: string | null
   }
+  isLoading: boolean
+  lastError: TaskVillageError | null
 }
 
 export const useTaskStore = defineStore('tasks', {
@@ -66,21 +69,17 @@ export const useTaskStore = defineStore('tasks', {
       status: null,
       priority: null,
       assignee: null
-    }
+    },
+    isLoading: false,
+    lastError: null
   }),
 
   getters: {
     publicTasks: (state): Task[] => 
-      state.tasks.filter(task => 
-        task.type === 'public' && 
-        task.workspaceId === state.workspaceId
-      ),
+      state.tasks.filter(task => task.type === 'public'),
     
     privateTasks: (state): Task[] =>
-      state.tasks.filter(task => 
-        task.type === 'private' && 
-        task.workspaceId === state.workspaceId
-      ),
+      state.tasks.filter(task => task.type === 'private'),
     
     getTaskById: (state) => (id: number): Task | undefined =>
       state.tasks.find(task => task.id === id),
@@ -88,10 +87,14 @@ export const useTaskStore = defineStore('tasks', {
     getCommentsByTaskId: (state) => (taskId: number): Comment[] => {
       const task = state.tasks.find(t => t.id === taskId)
       if (!task) return []
-      
       return state.comments.filter(comment => 
         comment.taskId === taskId && comment.taskType === task.type
       )
+    },
+
+    currentWorkspaceTasks: (state): Task[] => {
+      if (!state.workspaceId) return []
+      return state.tasks.filter(task => task.workspaceId === state.workspaceId)
     },
 
     filteredTasks: (state) => {
@@ -116,152 +119,198 @@ export const useTaskStore = defineStore('tasks', {
   },
 
   actions: {
-    initializeStore() {
-      const { getCurrentUser } = useUser()
-      const currentUser = getCurrentUser()
-      
-      console.log('Initializing task store with user:', currentUser)
-      
-      if (!currentUser) {
-        console.warn('No user found during store initialization')
-        return
-      }
-      
-      if (this.tasks.length === 0) {
-        console.log('Creating initial tasks...')
-        this.createTask({
-          title: "Setup development environment",
-          description: "Configure Docker and development tools",
-          type: "public",
-          priority: "medium",
-          status: "completed",
-          progress: 100,
-          assignee: {
-            name: currentUser.name,
-            avatar: currentUser.avatar
-          },
-          workspaceId: 1
-        })
+    async createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>) {
+      this.isLoading = true
+      this.lastError = null
 
-        this.createTask({
-          title: "Write API documentation",
-          description: "Document all endpoints and request/response formats",
-          type: "private",
-          priority: "low",
-          status: "in_progress",
-          progress: 25,
-          assignee: {
-            name: currentUser.name,
-            avatar: currentUser.avatar
-          },
-          workspaceId: 1
-        })
-        console.log('Initial tasks created:', this.tasks)
-      }
-    },
+      try {
+        if (!taskData.title?.trim()) {
+          throw new TaskVillageError('Task title is required', ErrorCode.INVALID_INPUT)
+        }
 
-    createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>): Task {
-      const { getCurrentUser } = useUser()
-      const currentUser = getCurrentUser()
-      
-     console.log('Creating new task with user:', currentUser)
-      
-      if (!currentUser) {
-      throw new Error('No user found while creating task')
+        const workspaceId = taskData.workspaceId || this.workspaceId
+        if (!workspaceId) {
+          throw new TaskVillageError('Workspace is required', ErrorCode.INVALID_INPUT)
+        }
+
+        const { hasWorkspaceAccess } = useUser()
+        if (!hasWorkspaceAccess(workspaceId)) {
+          throw new TaskVillageError('No access to workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        const newTask: Task = {
+          id: this.nextTaskId++,
+          title: taskData.title,
+          description: taskData.description || '',
+          type: taskData.type || 'public',
+          priority: taskData.priority || 'medium',
+          status: taskData.status || 'not_started',
+          dueDate: taskData.dueDate || null,
+          progress: taskData.progress || 0,
+          assignee: taskData.assignee || {
+            name: 'Current User',
+            avatar: '/placeholder-avatar.png'
+          },
+          likes: 0,
+          likedBy: [],
+          comments: 0,
+          createdAt: new Date().toISOString(),
+          workspaceId
+        }
+        
+        this.tasks.unshift(newTask)
+        return newTask
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to create task', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
       }
-      
-      const newTask: Task = {
-        id: this.nextTaskId++,
-        title: taskData.title || '',
-        description: taskData.description || '',
-        type: taskData.type || 'public',
-        priority: taskData.priority || 'medium',
-        status: taskData.status || 'not_started',
-        dueDate: taskData.dueDate || null,
-        progress: taskData.progress || 0,
-        assignee: {
-          name: currentUser.name,
-          avatar: currentUser.avatar
-        },
-        likes: 0,
-        likedBy: [],
-        comments: 0,
-        createdAt: new Date().toISOString(),
-        workspaceId: taskData.workspaceId || this.workspaceId || null
-      }
-      
-      console.log('New task created:', newTask)
-      this.tasks.unshift(newTask)
-      return newTask
     },
 
     setWorkspace(workspaceId: number | null) {
-      this.workspaceId = workspaceId
-      this.taskFilters = {
-        status: null,
-        priority: null,
-        assignee: null
+      try {
+        if (workspaceId) {
+          const { hasWorkspaceAccess } = useUser()
+          if (!hasWorkspaceAccess(workspaceId)) {
+            throw new TaskVillageError('No access to workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
+          }
+        }
+        this.workspaceId = workspaceId
+        this.taskFilters = {
+          status: null,
+          priority: null,
+          assignee: null
+        }
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to set workspace', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
       }
     },
 
-    updateFilters(filters: Partial<TaskState['taskFilters']>) {
-      this.taskFilters = {
-        ...this.taskFilters,
-        ...filters
+    determineStatus(progress: number): Status {
+  if (progress === 0) {
+    return 'not_started';
+  } else if (progress < 100) {
+    return 'in_progress';
+  } else {
+    return 'completed';
+  }
+},
+
+    async updateTaskProgress(taskId: number, progress: number): Promise<boolean> {
+      this.isLoading = true
+      this.lastError = null
+
+      try {
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+        if (taskIndex === -1) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
+
+        if (progress < 0 || progress > 100) {
+          throw new TaskVillageError('Invalid progress value', ErrorCode.INVALID_INPUT)
+        }
+
+        const task = this.tasks[taskIndex]
+        
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        this.tasks[taskIndex] = {
+          ...task,
+          progress: Math.round(progress),
+          status: (this as any).determineStatus(progress)
+        }
+
+        return true
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to update progress', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
       }
     },
 
     toggleLike(taskId: number, userId: string): void {
-      const task = this.tasks.find(t => t.id === taskId)
-      if (!task) return
+      try {
+        const task = this.tasks.find(t => t.id === taskId)
+        if (!task) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
 
-      const isLiked = task.likedBy.includes(userId)
-      if (isLiked) {
-        task.likedBy = task.likedBy.filter(id => id !== userId)
-        task.likes = Math.max(0, task.likes - 1)
-      } else {
-        task.likedBy.push(userId)
-        task.likes++
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to interact with task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        const isLiked = task.likedBy.includes(userId)
+        if (isLiked) {
+          task.likedBy = task.likedBy.filter(id => id !== userId)
+          task.likes = Math.max(0, task.likes - 1)
+        } else {
+          task.likedBy.push(userId)
+          task.likes++
+        }
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to toggle like', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
       }
     },
 
     addComment(taskId: number, content: string, author: { name: string, avatar: string }): Comment {
-      const task = this.tasks.find(t => t.id === taskId)
-      if (!task) throw new Error('Task not found')
+      try {
+        const task = this.tasks.find(t => t.id === taskId)
+        if (!task) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
 
-      const newComment: Comment = {
-        id: this.nextCommentId++,
-        taskId,
-        taskType: task.type,
-        content,
-        author,
-        createdAt: new Date().toISOString()
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to comment on task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        const newComment: Comment = {
+          id: this.nextCommentId++,
+          taskId,
+          taskType: task.type,
+          content: content.trim(),
+          author,
+          createdAt: new Date().toISOString()
+        }
+
+        this.comments.push(newComment)
+        task.comments++
+
+        return newComment
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to add comment', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
       }
-
-      this.comments.push(newComment)
-      task.comments++
-
-      return newComment
     },
 
-    updateTaskProgress(taskId: number, progress: number): boolean {
-      const task = this.tasks.find(t => t.id === taskId)
-      if (!task) return false
-
-      const validProgress = Math.min(Math.max(Math.round(progress), 0), 100)
-      
-      task.progress = validProgress
-      task.status = this.determineStatus(validProgress)
-
-      return true
-    },
-
-    determineStatus(progress: number): Status {
-      if (progress === 100) return 'completed'
-      if (progress > 0) return 'in_progress'
-      return 'not_started'
-    }
+    
   },
 
   persist: true
 })
+
+useTaskStore.prototype.determineStatus = function(progress: number): Status {
+  if (progress === 100) return 'completed'
+  if (progress > 0) return 'in_progress'
+  return 'not_started'
+}
+
+export type TaskStore = ReturnType<typeof useTaskStore>

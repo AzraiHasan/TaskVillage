@@ -1,14 +1,19 @@
 <!-- components/task/TaskForm.vue -->
 <template>
-  <UModal :model-value="modelValue" @update:model-value="handleModalUpdate" @before-leave="handleBeforeLeave">
+  <UModal :model-value="modelValue" @update:model-value="handleModalUpdate">
     <UCard class="w-full max-w-xl">
       <template #header>
-        <h3 class="text-lg font-medium">Create New Task</h3>
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg font-medium">Create New Task</h3>
+          <p v-if="isSubmitting" class="text-sm text-gray-500">
+            Creating task...
+          </p>
+        </div>
       </template>
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
-        <UFormGroup label="Title" name="title" required>
-          <UInput v-model="formData.title" placeholder="Enter task title" />
+        <UFormGroup label="Title" name="title" required :error="validationErrors.title">
+          <UInput v-model="formData.title" placeholder="Enter task title" :error="!!validationErrors.title" />
         </UFormGroup>
 
         <UFormGroup label="Description" name="description">
@@ -41,19 +46,30 @@
         </UFormGroup>
 
         <div class="flex justify-end gap-2">
-          <UButton color="gray" variant="ghost" @click="handleCancel">
+          <UButton color="gray" variant="ghost" @click="handleCancel" :disabled="isSubmitting">
             Cancel
           </UButton>
-          <UButton type="submit" color="primary" :loading="isSubmitting">
+          <UButton type="submit" color="primary" :loading="isSubmitting"
+            :disabled="isSubmitting || hasValidationErrors">
             Create Task
           </UButton>
         </div>
       </form>
+
+      <!-- Error Alert -->
+      <UAlert v-if="submitError" class="mt-4" color="red" title="Error" :description="submitError">
+        <template #icon>
+          <Icon name="heroicons:exclamation-circle" />
+        </template>
+      </UAlert>
+
     </UCard>
   </UModal>
 </template>
 
 <script setup lang="ts">
+import { TaskVillageError, ErrorCode } from '~/types/errors'
+import { useErrorHandler } from '~/composables/useErrorHandler'
 import { format, parseISO } from 'date-fns'
 import { useTaskStore, TASK_TYPES, PRIORITIES } from '~/stores/useTaskStore'
 import { useUser } from '~/composables/useUser'
@@ -79,9 +95,47 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+// Form state
 const taskStore = useTaskStore()
 const isSubmitting = ref(false)
 const isDatePickerVisible = ref(true)
+const { handleError } = useErrorHandler()
+const toast = useToast()
+const submitError = ref<string | null>(null)
+const validationErrors = reactive({
+  title: '',
+  workspaceId: '',
+  dueDate: ''
+})
+
+// Form validation
+const validateForm = (): boolean => {
+  let isValid = true
+  validationErrors.title = ''
+  validationErrors.workspaceId = ''
+  validationErrors.dueDate = ''
+
+  if (!formData.value.title.trim()) {
+    validationErrors.title = 'Title is required'
+    isValid = false
+  }
+
+  if (!formData.value.workspaceId) {
+    validationErrors.workspaceId = 'Workspace is required'
+    isValid = false
+  }
+
+  if (formData.value.dueDate && isNaN(new Date(formData.value.dueDate).getTime())) {
+    validationErrors.dueDate = 'Invalid date format'
+    isValid = false
+  }
+
+  return isValid
+}
+
+const hasValidationErrors = computed(() => {
+  return Object.values(validationErrors).some(error => !!error)
+})
 
 const workspaceIdValue = computed(() => formData.value.workspaceId !== null ? formData.value.workspaceId : '')
 
@@ -156,27 +210,18 @@ const resetForm = () => {
   isDatePickerVisible.value = true
 }
 
+// Form submission
 const handleSubmit = async () => {
-  if (!formData.value.title.trim() || !formData.value.workspaceId) return
+  submitError.value = null
   
-  const { user } = useUser()
-  if (!user.value) return
-
-  if (!isValidTaskType(formData.value.type) || !isValidPriority(formData.value.priority)) {
-    const toast = useToast()
-    toast.add({
-      title: 'Invalid Input',
-      description: 'Task type or priority is invalid',
-      color: 'red'
-    })
+  if (!validateForm()) {
     return
   }
 
   isSubmitting.value = true
-  const toast = useToast()
 
   try {
-    const newTask = {
+    const newTask = await taskStore.createTask({
       title: formData.value.title,
       description: formData.value.description,
       type: formData.value.type,
@@ -187,9 +232,7 @@ const handleSubmit = async () => {
         name: 'Sarah Chen',
         avatar: '/placeholder-avatar.png'
       }
-    }
-    
-    await taskStore.createTask(newTask)
+    })
 
     toast.add({
       title: 'Success',
@@ -200,12 +243,16 @@ const handleSubmit = async () => {
     resetForm()
     emit('update:modelValue', false)
   } catch (error) {
-    toast.add({
-      title: 'Error',
-      description: 'Failed to create task. Please try again.',
-      color: 'red'
-    })
-    console.error('Error creating task:', error)
+    if (error instanceof TaskVillageError) {
+      submitError.value = error.message
+      
+      // Handle specific error types
+      if (error.code === ErrorCode.WORKSPACE_ACCESS_DENIED) {
+        validationErrors.workspaceId = 'You don\'t have access to this workspace'
+      }
+    } else {
+      handleError(error)
+    }
   } finally {
     isSubmitting.value = false
   }
