@@ -76,10 +76,16 @@ export const useTaskStore = defineStore('tasks', {
 
   getters: {
     publicTasks: (state): Task[] => 
-      state.tasks.filter(task => task.type === 'public'),
-    
-    privateTasks: (state): Task[] =>
-      state.tasks.filter(task => task.type === 'private'),
+  state.tasks.filter(task => 
+    task.type === 'public' && 
+    (task.workspaceId === state.workspaceId || task.workspaceId === null)
+  ),
+
+privateTasks: (state): Task[] =>
+  state.tasks.filter(task => 
+    task.type === 'private' && 
+    (task.workspaceId === state.workspaceId || task.workspaceId === null)
+  ),
     
     getTaskById: (state) => (id: number): Task | undefined =>
       state.tasks.find(task => task.id === id),
@@ -119,6 +125,31 @@ export const useTaskStore = defineStore('tasks', {
   },
 
   actions: {
+    initializeStore() {
+      try {
+        // Initialize with empty state
+        this.tasks = []
+        this.comments = []
+        this.nextTaskId = 1
+        this.nextCommentId = 1
+        this.workspaceId = null
+        this.taskFilters = {
+          status: null,
+          priority: null,
+          assignee: null
+        }
+        this.isLoading = false
+        this.lastError = null
+        
+        console.log('Store initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize store:', error)
+        // Handle initialization error
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to initialize store', ErrorCode.OPERATION_FAILED)
+      }
+    },
     async createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>) {
       this.isLoading = true
       this.lastError = null

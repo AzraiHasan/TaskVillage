@@ -87,6 +87,8 @@ interface TaskFormData {
   workspaceId: number | null
 }
 
+
+
 const props = defineProps<{
   modelValue: boolean
 }>()
@@ -137,7 +139,12 @@ const hasValidationErrors = computed(() => {
   return Object.values(validationErrors).some(error => !!error)
 })
 
-const workspaceIdValue = computed(() => formData.value.workspaceId !== null ? formData.value.workspaceId : '')
+const workspaceIdValue = computed({
+  get: () => formData.value.workspaceId !== null ? formData.value.workspaceId : '',
+  set: (newValue) => {
+    formData.value.workspaceId = newValue !== '' ? Number(newValue) : null
+  }
+})
 
 const formattedDueDate = computed(() => {
   if (!formData.value.dueDate) return 'Set due date'
@@ -155,7 +162,7 @@ const formData = ref<TaskFormData>({
   type: 'public',
   priority: 'medium',
   dueDate: null,
-  workspaceId: null
+  workspaceId: taskStore.workspaceId
 })
 
 const workspaces = ref([
@@ -205,7 +212,7 @@ const resetForm = () => {
     type: 'public',
     priority: 'medium',
     dueDate: null,
-    workspaceId: null
+    workspaceId: taskStore.workspaceId
   }
   isDatePickerVisible.value = true
 }

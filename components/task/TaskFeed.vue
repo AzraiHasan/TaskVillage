@@ -87,7 +87,6 @@
 
 <script setup lang="ts">
 import { useTaskStore, STATUSES, PRIORITIES } from '~/stores/useTaskStore'
-import type { Task } from '~/stores/useTaskStore'
 import { parseISO, startOfDay, differenceInDays } from 'date-fns'
 
 type Status = typeof STATUSES[number]
@@ -107,9 +106,11 @@ const filters = reactive({
 })
 
 watch(filters, (newFilters) => {
-  taskStore.updateFilters({
-    status: newFilters.status || null,
-    priority: newFilters.priority || null
+  taskStore.$patch({
+    taskFilters: {
+      status: newFilters.status || null,
+      priority: newFilters.priority || null
+    }
   })
 }, { deep: true })
 
