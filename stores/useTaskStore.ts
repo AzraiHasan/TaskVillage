@@ -1,11 +1,12 @@
 // stores/useTaskStore.ts
 import { defineStore } from 'pinia'
 import { TaskVillageError, ErrorCode } from '~/types/errors'
+import { useNotificationStore } from '~/stores/useNotificationStore'
 
 // Maintain existing type constants
 export const TASK_TYPES = ['public', 'private'] as const
 export const PRIORITIES = ['low', 'medium', 'high'] as const
-export const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed'] as const
+export const STATUSES = ['not_started', 'in_progress', 'in_review', 'completed', 'canceled'] as const
 
 type TaskType = typeof TASK_TYPES[number]
 type Priority = typeof PRIORITIES[number]
@@ -331,7 +332,154 @@ privateTasks: (state): Task[] =>
         throw this.lastError
       }
     },
+    async completeTask(taskId: number): Promise<boolean> {
+      this.isLoading = true
+      this.lastError = null
 
+      try {
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+        if (taskIndex === -1) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
+
+        const task = this.tasks[taskIndex]
+        
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        this.tasks[taskIndex] = {
+          ...task,
+          status: 'completed',
+          progress: 100
+        }
+
+        const notificationStore = useNotificationStore()
+const { user } = useUser()
+
+notificationStore.addNotification({
+  userId: 'all', // Notify all team members
+  taskId: task.id,
+  taskTitle: task.title,
+  user: {
+    name: user.value?.name || 'Current User',
+    avatar: user.value?.avatar || '/placeholder-avatar.png'
+  },
+  action: 'completed a task',
+  read: false
+})
+
+        return true
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to complete task', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async cancelTask(taskId: number, reason?: string): Promise<boolean> {
+      this.isLoading = true
+      this.lastError = null
+
+      try {
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+        if (taskIndex === -1) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
+
+        const task = this.tasks[taskIndex]
+        
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        // We'll add a new status for canceled tasks
+        this.tasks[taskIndex] = {
+          ...task,
+          status: 'canceled' as Status, // We'll need to add this to the STATUSES array
+          progress: 0,
+          description: reason ? `${task.description}\n\nCanceled: ${reason}` : task.description
+        }
+
+        const notificationStore = useNotificationStore()
+const { user } = useUser()
+
+notificationStore.addNotification({
+  userId: 'all',
+  taskId: task.id,
+  taskTitle: task.title,
+  user: {
+    name: user.value?.name || 'Current User',
+    avatar: user.value?.avatar || '/placeholder-avatar.png'
+  },
+  action: 'canceled a task',
+  read: false
+})
+
+        return true
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to cancel task', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async updateTask(taskId: number, updateData: Partial<Omit<Task, 'id' | 'createdAt' | 'likes' | 'likedBy' | 'comments'>>): Promise<boolean> {
+      this.isLoading = true
+      this.lastError = null
+
+      try {
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+        if (taskIndex === -1) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
+
+        const task = this.tasks[taskIndex]
+        
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
+
+        // Update the task with new data
+        this.tasks[taskIndex] = {
+          ...task,
+          ...updateData
+        }
+
+        const notificationStore = useNotificationStore()
+const { user } = useUser()
+
+notificationStore.addNotification({
+  userId: 'all',
+  taskId: task.id,
+  taskTitle: task.title,
+  user: {
+    name: user.value?.name || 'Current User',
+    avatar: user.value?.avatar || '/placeholder-avatar.png'
+  },
+  action: 'updated a task',
+  read: false
+})
+
+        return true
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to update task', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
+      }
+    }
     
   },
 

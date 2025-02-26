@@ -70,8 +70,10 @@
         <div class="flex justify-between items-center">
           <TaskInteractions :task-id="task.id" :likes="task.likes" :comments="task.comments"
             :assignee="task.assignee" />
-          <UButton v-if="task.status !== 'completed'" icon="i-heroicons-pencil" color="gray" variant="ghost"
-            size="sm" />
+          <UDropdown v-if="task.status !== 'completed' && task.status !== 'canceled'" :items="getTaskActionItems(task)"
+            :popper="{ placement: 'bottom-end' }">
+            <UButton icon="i-heroicons-ellipsis-vertical" color="gray" variant="ghost" size="sm" />
+          </UDropdown>
         </div>
       </template>
     </UCard>
@@ -82,12 +84,43 @@
         {{ workspaceMessage }}
       </p>
     </div>
+
+    <UModal v-model="isCancelModalOpen">
+      <UCard>
+        <template #header>
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-medium">Cancel Task</h3>
+          </div>
+        </template>
+
+        <p class="mb-4">Are you sure you want to cancel this task? This action cannot be undone.</p>
+
+        <UFormGroup label="Reason (Optional)" name="cancelReason">
+          <UTextarea v-model="cancelReason" placeholder="Why is this task being canceled?" :rows="3" />
+        </UFormGroup>
+
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton color="gray" variant="ghost" @click="isCancelModalOpen = false">
+              Cancel
+            </UButton>
+            <UButton color="red" @click="confirmCancelTask">
+              Confirm
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+    </UModal>
+
+    <TaskForm v-model="isEditModalOpen" :edit-mode="true" :task-to-edit="selectedTask" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useTaskStore, STATUSES, PRIORITIES } from '~/stores/useTaskStore'
 import { parseISO, startOfDay, differenceInDays } from 'date-fns'
+import TaskInteractions from './TaskInteractions.vue'
+import TaskForm from '~/components/task/TaskForm.vue'
 
 type Status = typeof STATUSES[number]
 type Priority = typeof PRIORITIES[number]
@@ -98,6 +131,83 @@ const props = defineProps<{
 }>()
 
 const taskStore = useTaskStore()
+
+// State for edit and cancel modals
+const isEditModalOpen = ref(false)
+const isCancelModalOpen = ref(false)
+const selectedTaskId = ref<number | null>(null)
+const selectedTask = ref<Task | null>(null)
+const cancelReason = ref('')
+
+const completeTask = async (taskId: number) => {
+  try {
+    await taskStore.completeTask(taskId)
+    
+    const toast = useToast()
+    toast.add({
+      title: 'Task Completed',
+      description: 'The task has been marked as completed',
+      color: 'green'
+    })
+  } catch (error) {
+    const { handleError } = useErrorHandler()
+    handleError(error)
+  }
+}
+
+const getTaskActionItems = (task: Task) => {
+  return [[
+    {
+      label: 'Complete',
+      icon: 'i-heroicons-check-circle',
+      click: () => completeTask(task.id)
+    },
+    {
+      label: 'Edit',
+      icon: 'i-heroicons-pencil', 
+      click: () => editTask(task)
+    },
+    {
+      label: 'Cancel',
+      icon: 'i-heroicons-x-circle',
+      color: 'red',
+      click: () => showCancelConfirm(task.id)
+    }
+  ]]
+}
+
+const editTask = (task: Task) => {
+  selectedTask.value = { ...task } // Create a copy to avoid direct reference
+  isEditModalOpen.value = true
+}
+
+const showCancelConfirm = (taskId: number) => {
+  selectedTaskId.value = taskId
+  cancelReason.value = ''
+  isCancelModalOpen.value = true
+}
+
+const confirmCancelTask = async () => {
+  if (!selectedTaskId.value) return
+  
+  try {
+    await taskStore.cancelTask(selectedTaskId.value, cancelReason.value)
+    
+    const toast = useToast()
+    toast.add({
+      title: 'Task Canceled',
+      description: 'The task has been canceled',
+      color: 'blue'
+    })
+    
+    isCancelModalOpen.value = false
+    selectedTaskId.value = null
+    cancelReason.value = ''
+  } catch (error) {
+    const { handleError } = useErrorHandler()
+    handleError(error)
+  }
+}
 
 // Filters
 const filters = reactive({
