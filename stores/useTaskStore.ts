@@ -151,6 +151,7 @@ privateTasks: (state): Task[] =>
           : new TaskVillageError('Failed to initialize store', ErrorCode.OPERATION_FAILED)
       }
     },
+    
     async createTask(taskData: Partial<Omit<Task, 'id' | 'likes' | 'likedBy' | 'comments' | 'createdAt'>>) {
       this.isLoading = true
       this.lastError = null
@@ -201,6 +202,59 @@ privateTasks: (state): Task[] =>
         this.isLoading = false
       }
     },
+
+    async assignTask(taskId: number, assignee: { id: string, name: string, avatar: string }): Promise<boolean> {
+  this.isLoading = true
+  this.lastError = null
+
+  try {
+    const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+    if (taskIndex === -1) {
+      throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+    }
+
+    const task = this.tasks[taskIndex]
+    
+    const { hasWorkspaceAccess } = useUser()
+    if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+      throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+    }
+
+    // Update the task assignee
+    this.tasks[taskIndex] = {
+      ...task,
+      assignee: {
+        name: assignee.name,
+        avatar: assignee.avatar
+      }
+    }
+
+    // Create a notification for the assignment
+    const notificationStore = useNotificationStore()
+    const { user } = useUser()
+
+    notificationStore.addNotification({
+      userId: assignee.id, // Direct notification to the assignee
+      taskId: task.id,
+      taskTitle: task.title,
+      user: {
+        name: user.value?.name || 'Current User',
+        avatar: user.value?.avatar || '/placeholder-avatar.png'
+      },
+      action: `assigned you to task`,
+      read: false
+    })
+
+    return true
+  } catch (error) {
+    this.lastError = error instanceof TaskVillageError 
+      ? error 
+      : new TaskVillageError('Failed to assign task', ErrorCode.OPERATION_FAILED)
+    throw this.lastError
+  } finally {
+    this.isLoading = false
+  }
+},
 
     setWorkspace(workspaceId: number | null) {
       try {

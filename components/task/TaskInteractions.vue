@@ -1,71 +1,73 @@
 <!-- components/task/TaskInteractions.vue -->
 <template>
- <div>
-  <div class="flex justify-between items-center p-4">
-   <div class="flex space-x-4">
-    <UTooltip :text="isLiked ? 'Unlike' : 'Like'" class="inline-block">
-     <UButton variant="ghost" :icon="isLiked ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
-      :color="isLiked ? 'red' : 'gray'" @click="handleLike" :loading="isLoading">
-      {{ likes }}
-     </UButton>
-    </UTooltip>
+  <div>
+    <div class="flex justify-between items-center p-4">
+      <div class="flex space-x-4">
+        <UTooltip :text="isLiked ? 'Unlike' : 'Like'" class="inline-block">
+          <UButton variant="ghost" :icon="isLiked ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+            :color="isLiked ? 'red' : 'gray'" @click="handleLike" :loading="isLoading">
+            {{ likes }}
+          </UButton>
+        </UTooltip>
 
-    <UTooltip text="Comments" class="inline-block">
-     <UButton variant="ghost" icon="i-heroicons-chat-bubble-left" @click="toggleComments">
-      {{ comments }}
-     </UButton>
-    </UTooltip>
-   </div>
-
-   <div class="flex items-center space-x-2">
-    <UAvatar :src="assignee.avatar" size="sm" />
-    <span class="text-sm text-gray-600">{{ assignee.name }}</span>
-   </div>
-  </div>
-
-  <!-- Comments Modal -->
-  <UModal v-model="showComments">
-   <UCard :ui="{ base: 'w-full max-w-2xl' }">
-    <template #header>
-     <div class="flex justify-between items-center">
-      <h3 class="text-lg font-medium">Comments</h3>
-      <UButton icon="i-heroicons-x-mark" color="gray" variant="ghost" @click="showComments = false" />
-     </div>
-    </template>
-
-    <div class="space-y-4 max-h-96 overflow-y-auto">
-     <div v-for="comment in taskComments" :key="comment.id" class="flex gap-3 p-2 rounded-lg hover:bg-gray-50">
-      <UAvatar :src="comment.author.avatar" size="sm" />
-      <div class="flex-1">
-       <div class="flex items-center gap-2">
-        <span class="font-medium">{{ comment.author.name }}</span>
-        <span class="text-xs text-gray-500">
-         {{ formatDate(comment.createdAt) }}
-        </span>
-       </div>
-       <p class="text-sm text-gray-600 mt-1">{{ comment.content }}</p>
+        <UTooltip text="Comments" class="inline-block">
+          <UButton variant="ghost" icon="i-heroicons-chat-bubble-left" @click="toggleComments">
+            {{ comments }}
+          </UButton>
+        </UTooltip>
       </div>
-     </div>
 
-     <div v-if="taskComments.length === 0" class="text-center py-4 text-gray-500">
-      No comments yet. Be the first to comment!
-     </div>
+      <div class="flex items-center space-x-2">
+        <!-- Replace static assignee display with TaskAssignment component -->
+        <TaskAssignment :task-id="taskId" :assignee="assignee" />
+      </div>
     </div>
 
-    <template #footer>
-     <form @submit.prevent="submitComment" class="flex gap-2">
-      <UTextarea v-model="newComment" placeholder="Write a comment..." :ui="{ base: 'flex-1' }" :rows="2" autofocus />
-      <UButton type="submit" color="primary" icon="i-heroicons-paper-airplane" :loading="isSubmitting"
-       :disabled="!newComment.trim()" />
-     </form>
-    </template>
-   </UCard>
-  </UModal>
- </div>
+    <!-- Comments Modal -->
+    <UModal v-model="showComments">
+      <UCard :ui="{ base: 'w-full max-w-2xl' }">
+        <template #header>
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-medium">Comments</h3>
+            <UButton icon="i-heroicons-x-mark" color="gray" variant="ghost" @click="showComments = false" />
+          </div>
+        </template>
+
+        <div class="space-y-4 max-h-96 overflow-y-auto">
+          <div v-for="comment in taskComments" :key="comment.id" class="flex gap-3 p-2 rounded-lg hover:bg-gray-50">
+            <UAvatar :src="comment.author.avatar" size="sm" />
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="font-medium">{{ comment.author.name }}</span>
+                <span class="text-xs text-gray-500">
+                  {{ formatDate(comment.createdAt) }}
+                </span>
+              </div>
+              <p class="text-sm text-gray-600 mt-1">{{ comment.content }}</p>
+            </div>
+          </div>
+
+          <div v-if="taskComments.length === 0" class="text-center py-4 text-gray-500">
+            No comments yet. Be the first to comment!
+          </div>
+        </div>
+
+        <template #footer>
+          <form @submit.prevent="submitComment" class="flex gap-2">
+            <UTextarea v-model="newComment" placeholder="Write a comment..." :ui="{ base: 'flex-1' }" :rows="2"
+              autofocus />
+            <UButton type="submit" color="primary" icon="i-heroicons-paper-airplane" :loading="isSubmitting"
+              :disabled="!newComment.trim()" />
+          </form>
+        </template>
+      </UCard>
+    </UModal>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { useTaskStore } from '~/stores/useTaskStore'
+import TaskAssignment from '~/components/task/TaskAssignment.vue'
 
 const props = defineProps<{
   taskId: number
