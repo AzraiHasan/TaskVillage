@@ -8,12 +8,18 @@
     </div>
 
     <!-- Task Cards -->
-    <UCard v-for="task in filteredTasks" :key="task.id" class="hover:shadow-lg transition-shadow duration-200">
+    <UCard v-for="task in filteredTasks" :key="task.id" class="hover:shadow-lg transition-shadow duration-200" :class="{ 
+    'opacity-75': task.status === 'completed' || task.status === 'canceled',
+    'border-l-4 border-l-green-500': task.status === 'completed',
+    'border-l-4 border-l-red-500': task.status === 'canceled'
+  }">
       <!-- Card Header -->
       <template #header>
         <div class="flex justify-between items-center">
           <div>
-            <h3 class="font-semibold text-lg">{{ task.title }}</h3>
+            <h3 class="font-semibold text-lg" :class="{ 'line-through': task.status === 'canceled' }">
+              {{ task.title }}
+            </h3>
             <p class="text-sm text-gray-500">Assigned to {{ task.assignee.name }}</p>
             <!-- Due Date -->
             <div v-if="task.dueDate" class="flex items-center gap-2 mt-2">
@@ -25,7 +31,10 @@
           </div>
           <div class="flex items-center gap-2">
             <UBadge :color="getStatusColor(task.status)" size="sm">
-              {{ formatStatus(task.status) }}
+              <span class="flex items-center gap-1">
+                <Icon :name="getStatusIcon(task.status)" class="w-4 h-4" />
+                {{ formatStatus(task.status) }}
+              </span>
             </UBadge>
             <UBadge :color="task.priority === 'high' ? 'red' : 'yellow'" size="sm">
               {{ task.priority }}
@@ -35,7 +44,9 @@
       </template>
 
       <!-- Task Description -->
-      <p class="text-gray-600 mb-4">{{ task.description }}</p>
+      <p class="text-gray-600 mb-4" :class="{ 'line-through': task.status === 'canceled' }">
+        {{ task.description }}
+      </p>
 
       <!-- Progress Section -->
       <div v-if="task.status === 'in_progress'" class="mb-4 space-y-2">
@@ -294,12 +305,22 @@ const getStatusColor = (status: string): BadgeColor => {
     not_started: undefined,
     in_progress: 'blue',
     in_review: 'yellow',
-    completed: 'green'
+    completed: 'green',
+    canceled: 'red'  // Add color for canceled tasks
   }
   return statusColors[status]
 }
 
-
+const getStatusIcon = (status: string): string => {
+  const statusIcons: Record<string, string> = {
+    not_started: 'i-heroicons-clock',
+    in_progress: 'i-heroicons-arrow-path',
+    in_review: 'i-heroicons-eye',
+    completed: 'i-heroicons-check-circle',
+    canceled: 'i-heroicons-x-circle'
+  }
+  return statusIcons[status] || ''
+}
 
 // Progress Updates
 const updateProgress = async (taskId: number, progress: number) => {

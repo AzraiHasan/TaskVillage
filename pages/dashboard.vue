@@ -12,7 +12,7 @@
         </div>
 
         <div class="flex items-center gap-4">
-          <UButton variant="ghost" icon="i-heroicons-bell" :notifications="2" />
+          <UButton variant="ghost" icon="i-heroicons-bell" :notifications="unreadNotifications" />
           <UAvatar src="/placeholder-avatar.png" size="sm" />
         </div>
       </div>
@@ -46,6 +46,15 @@
 
 <script setup>
 import { useTaskStore } from '~/stores/useTaskStore'
+import { useNotificationStore } from '~/stores/useNotificationStore'
+
+// Get notification store
+const notificationStore = useNotificationStore()
+
+// Create computed property for unread notifications
+const unreadNotifications = computed(() => {
+  return notificationStore.unreadCount
+})
 
 const taskStore = useTaskStore()
 const isTaskFormOpen = ref(false)
