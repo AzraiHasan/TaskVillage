@@ -52,7 +52,7 @@ const taskStore = useTaskStore()
 
 // Get tasks filtered by workspace if provided
 const filteredTasks = computed(() => {
-  return props.workspaceId 
+  return props.workspaceId
     ? taskStore.tasks.filter(task => task.workspaceId === props.workspaceId)
     : taskStore.tasks
 })
@@ -60,27 +60,27 @@ const filteredTasks = computed(() => {
 // Calculate status distribution
 const statusData = computed(() => {
   const totalCount = filteredTasks.value.length
-  
+
   if (totalCount === 0) return []
-  
+
   // Count tasks by status
   const statusCounts = {}
   STATUSES.forEach(status => {
     statusCounts[status] = 0
   })
-  
+
   filteredTasks.value.forEach(task => {
     if (statusCounts[task.status] !== undefined) {
       statusCounts[task.status]++
     }
   })
-  
+
   // Create data array for the chart
   return STATUSES
     .map(status => {
       const count = statusCounts[status]
       const percentage = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0
-      
+
       return {
         key: status,
         count,

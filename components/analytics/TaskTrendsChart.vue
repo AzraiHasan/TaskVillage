@@ -26,22 +26,10 @@
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="created" 
-                  stroke="#3b82f6" 
-                  name="Created" 
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="completed" 
-                  stroke="#10b981" 
-                  name="Completed" 
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
-                />
+                <Line type="monotone" dataKey="created" stroke="#3b82f6" name="Created" strokeWidth={2} dot={{ r: 2
+                  }} />
+                <Line type="monotone" dataKey="completed" stroke="#10b981" name="Completed" strokeWidth={2} dot={{ r: 2
+                  }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -86,34 +74,34 @@ const filteredTasks = computed(() => {
 // Generate chart data based on selected time range
 const chartData = computed(() => {
   if (filteredTasks.value.length === 0) return []
-  
+
   const today = new Date()
   const days = timeRange.value
   const data = []
-  
+
   // For each day in the range
-  for (let i = days - 1; i >= 0; i--) {
+  for (let i = days - 1;i >= 0;i--) {
     const currentDate = subDays(today, i)
     const dayStart = startOfDay(currentDate)
     const dayEnd = endOfDay(currentDate)
-    
+
     // Count tasks created on this day
     const createdCount = filteredTasks.value.filter(task => {
       const createdDate = parseISO(task.createdAt)
       return isWithinInterval(createdDate, { start: dayStart, end: dayEnd })
     }).length
-    
+
     // Count tasks completed on this day (approximation - in a real app would use a completedAt field)
     // For this demo, we'll assume completed tasks with a similar timestamp were completed on that day
     const completedCount = filteredTasks.value.filter(task => {
       if (task.status !== 'completed') return false
-      
+
       // Since we don't have actual completedAt timestamps, we'll use createdAt as a proxy
       // In a real app, you would use a dedicated completedAt field
       const taskDate = parseISO(task.createdAt)
       return isWithinInterval(taskDate, { start: dayStart, end: dayEnd }) && task.status === 'completed'
     }).length
-    
+
     // Add day data to chart
     data.push({
       date: format(currentDate, 'yyyy-MM-dd'),
@@ -122,7 +110,7 @@ const chartData = computed(() => {
       completed: completedCount
     })
   }
-  
+
   return data
 })
 </script>
