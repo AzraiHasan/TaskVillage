@@ -5,5 +5,8 @@ export default defineNuxtConfig({
   colorMode: {
     preference: 'light'
   },
-  modules: ['@nuxt/ui','@pinia/nuxt','pinia-plugin-persistedstate/nuxt']
+  modules: ['nuxt-auth-utils','@nuxt/ui','@pinia/nuxt','pinia-plugin-persistedstate/nuxt'],
+  imports: {
+    autoImport: true,
+  }
 })

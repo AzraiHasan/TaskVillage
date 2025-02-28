@@ -5,3 +5,5 @@ from here onwards, be sure not to break existing functionality and only make sma
 i've implemented the changes and found no errors
 
 please update the `development_status.md` file, accordingly
+
+https://github.com/atinux/nuxt-auth-utils/tree/main/playground

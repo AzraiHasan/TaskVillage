@@ -15,11 +15,13 @@
     "chart.js": "^4.4.8",
     "date-fns": "^2.30.0",
     "nuxt": "^3.15.4",
+    "nuxt-auth-utils": "^0.5.16",
     "pinia": "^2.3.1",
     "pinia-plugin-persistedstate": "^4.2.0",
     "v-calendar": "^3.1.2",
     "vue": "latest",
     "vue-chartjs": "^5.3.2",
-    "vue-router": "latest"
+    "vue-router": "latest",
+    "zod": "^3.24.2"
   }
 }
