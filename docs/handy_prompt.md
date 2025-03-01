@@ -1,6 +1,6 @@
 analyze the attached repo against `development_status.md`
 
-analyze the attached repo. are you ready to continue work as per the `Updated Authentication Implemenation Plan`, accordingly?
+analyze the attached repo. are you ready to continue work as per the `Updated Authentication Implementation Plan`, accordingly?
 
 from here onwards, be sure not to break existing functionality and only make small implementation step one at a time, wait for me to check for errors in every small step before moving on.
 

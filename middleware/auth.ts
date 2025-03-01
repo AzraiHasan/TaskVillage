@@ -1,20 +1,30 @@
 // middleware/auth.ts
-import { useUser } from '~/composables/useUser'
-
 export default defineNuxtRouteMiddleware((to) => {
-  // Get our user management functions
+  const { loggedIn } = useUserSession()
   const { user, initializeDevUser } = useUser()
   
   // Public routes that don't require authentication
-  const publicRoutes = ['/']
+  const publicRoutes = ['/', '/login', '/register', '/unauthorized']
   
-  // During development, set up our mock user if none exists
-  if (!user.value) {
-    initializeDevUser()
+  // Check if the route is public
+  if (publicRoutes.includes(to.path)) {
+    // If user is already logged in and trying to access login/register
+    if (loggedIn.value && (to.path === '/login' || to.path === '/register')) {
+      // Check if there's a redirect parameter
+      const redirectPath = to.query.redirect?.toString() || '/dashboard'
+      return navigateTo(redirectPath)
+    }
+    return // Allow access to public routes
   }
-
-  // Check if route requires authentication
-  if (!publicRoutes.includes(to.path) && !user.value) {
-    return navigateTo('/')
+  
+  // For protected routes, check if user is logged in
+  if (!loggedIn.value) {
+    // Store the original route to redirect back after login
+    return navigateTo(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
+  }
+  
+  // For development environment, initialize user data if needed
+  if (!user.value && process.dev) {
+    initializeDevUser()
   }
 })
