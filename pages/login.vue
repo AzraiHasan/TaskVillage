@@ -32,10 +32,18 @@
         :title="error" />
 
       <template #footer>
-        <div class="text-center text-sm text-gray-500">
-          <p>Development credentials:</p>
-          <p>Email: sarah@taskvillage.dev</p>
-          <p>Password: password123</p>
+        <div class="text-center">
+          <div class="mb-3">
+            <p class="text-sm text-gray-500">
+              Don't have an account?
+              <NuxtLink to="/register" class="text-primary-600 hover:underline">Sign up</NuxtLink>
+            </p>
+          </div>
+          <div class="text-sm text-gray-500 pt-2 border-t">
+            <p>Development credentials:</p>
+            <p>Email: sarah@taskvillage.dev</p>
+            <p>Password: password123</p>
+          </div>
         </div>
       </template>
     </UCard>
