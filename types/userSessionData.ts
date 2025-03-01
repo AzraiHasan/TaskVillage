@@ -1,12 +1,6 @@
 // types/userSessionData.ts
+import type { User } from '~/composables/useUser'
+
 export interface UserSessionData {
- [key: string]: any;
-  user: {
-    id: string
-    name: string
-    email: string
-    avatar: string
-    workspaces: number[]
-    roles: string[] 
-  }
+  user: User
 }

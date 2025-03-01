@@ -14,19 +14,17 @@ export default defineEventHandler(async (event) => {
   // For development: hardcoded credentials check
   if (email === 'sarah@taskvillage.dev' && password === 'password123') {
     // Create session data with roles
-    const sessionData: UserSessionData = {
-      user: {
-        id: 'user1',
-        name: 'Sarah Chen',
-        email: 'sarah@taskvillage.dev',
-        avatar: '/placeholder-avatar.png',
-        workspaces: [1, 2],
-        roles: ['user'] // Add default role
-      }
+    const userData: UserSessionData['user'] = {
+      id: 'user1',
+      name: 'Sarah Chen',
+      email: 'sarah@taskvillage.dev',
+      avatar: '/placeholder-avatar.png',
+      workspaces: [1, 2],
+      roles: ['user'] // Add default role
     }
     
     // Set the user session
-    await setUserSession(event, sessionData)
+    await setUserSession(event, { user: userData })
     
     return { success: true }
   }

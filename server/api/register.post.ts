@@ -1,6 +1,7 @@
 // server/api/register.post.ts
 import { z } from 'zod'
 import bcrypt from 'bcrypt'
+import type { UserSessionData } from '~/types/userSessionData'
 
 // Define validation schema for registration
 const bodySchema = z.object({
@@ -31,16 +32,16 @@ export default defineEventHandler(async (event) => {
     console.log(`User registered: ${name}, ${email}`)
     
     // Create a user session right after registration
-    await setUserSession(event, {
-      user: {
-        id: `user_${Date.now()}`, // Generate a temporary ID
-        name,
-        email,
-        avatar: '/placeholder-avatar.png',
-        workspaces: [1, 2],
-      roles: ['developer', 'manager'] 
-      }
-    })
+    const userData: UserSessionData['user'] = {
+      id: `user_${Date.now()}`, // Generate a temporary ID
+      name,
+      email,
+      avatar: '/placeholder-avatar.png',
+      workspaces: [1, 2],
+      roles: ['developer', 'manager']
+    }
+    
+    await setUserSession(event, { user: userData })
     
     return {
       success: true,
