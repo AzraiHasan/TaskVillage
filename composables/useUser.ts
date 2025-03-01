@@ -1,6 +1,4 @@
 // composables/useUser.ts
-
-// Define our user type for type safety throughout the application
 export interface User {
   id: string
   name: string
@@ -8,10 +6,11 @@ export interface User {
   avatar: string
   workspaces: number[]
 }
-
 export const useUser = () => {
   // Create a reactive user state that persists across components
   const user = useState<User | null>('user', () => null)
+  const router = useRouter()
+  const { clear: clearSession } = useUserSession()
 
   // Function to set up our development user
   const initializeDevUser = () => {
@@ -36,6 +35,26 @@ export const useUser = () => {
     user.value = null
   }
 
+  // Logout function
+  const logout = async () => {
+    try {
+      // Call the logout API endpoint
+      await $fetch('/api/logout', { method: 'POST' })
+      
+      // Clear client-side session
+      await clearSession()
+      
+      // Clear local user state
+      clearUser()
+      
+      // Redirect to login page
+      return router.push('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+      throw error
+    }
+  }
+
   // Check if user has access to a specific workspace
   const hasWorkspaceAccess = (workspaceId: number) => {
     return user.value?.workspaces.includes(workspaceId) ?? false
@@ -52,6 +71,7 @@ export const useUser = () => {
     initializeDevUser,
     clearUser,
     hasWorkspaceAccess,
-    getCurrentUser
+    getCurrentUser,
+    logout
   }
 }

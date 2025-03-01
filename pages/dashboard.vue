@@ -16,6 +16,12 @@
           <UTooltip text="Notifications">
             <UButton variant="ghost" icon="i-heroicons-bell" :notifications="unreadNotifications" to="/notifications" />
           </UTooltip>
+
+          <!-- Add logout button -->
+          <UTooltip text="Logout">
+            <UButton variant="ghost" icon="i-heroicons-arrow-right-on-rectangle" @click="handleLogout" />
+          </UTooltip>
+
           <UAvatar src="/placeholder-avatar.png" size="sm" />
         </div>
       </div>
@@ -75,8 +81,31 @@
 </template>
 
 <script setup>
+import { useUser } from '~/composables/useUser'
 import { useTaskStore } from '~/stores/useTaskStore'
 import { useNotificationStore } from '~/stores/useNotificationStore'
+
+// Get user composable
+const { logout } = useUser()
+const toast = useToast()
+
+// Handle logout
+const handleLogout = async () => {
+  try {
+    await logout()
+    toast.add({
+      title: 'Success',
+      description: 'You have been logged out',
+      color: 'green'
+    })
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to log out. Please try again.',
+      color: 'red'
+    })
+  }
+}
 
 // Get notification store
 const notificationStore = useNotificationStore()

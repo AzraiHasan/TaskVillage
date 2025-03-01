@@ -13,6 +13,12 @@
           <UTooltip text="Notifications">
             <UButton variant="ghost" icon="i-heroicons-bell" :notifications="unreadNotifications" to="/notifications" />
           </UTooltip>
+
+          <!-- Add logout button -->
+          <UTooltip text="Logout">
+            <UButton variant="ghost" icon="i-heroicons-arrow-right-on-rectangle" @click="handleLogout" />
+          </UTooltip>
+
           <UAvatar src="/placeholder-avatar.png" size="sm" />
         </div>
       </div>
@@ -50,6 +56,7 @@
 </template>
 
 <script setup>
+import { useUser } from '~/composables/useUser'
 import { useNotificationStore } from '~/stores/useNotificationStore'
 import { useTaskStore } from '~/stores/useTaskStore'
 import TaskCompletionStats from '~/components/analytics/TaskCompletionStats.vue'
@@ -57,6 +64,28 @@ import TaskStatusDistribution from '~/components/analytics/TaskStatusDistributio
 import TeamProductivityMetrics from '~/components/analytics/TeamProductivityMetrics.vue'
 import TaskTrendsChart from '~/components/analytics/TaskTrendsChart.vue'
 import WorkspaceSelector from '~/components/workspace/WorkspaceSelector.vue'
+
+// Get user composable
+const { logout } = useUser()
+const toast = useToast()
+
+// Handle logout
+const handleLogout = async () => {
+  try {
+    await logout()
+    toast.add({
+      title: 'Success',
+      description: 'You have been logged out',
+      color: 'green'
+    })
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to log out. Please try again.',
+      color: 'red'
+    })
+  }
+}
 
 // Get stores
 const notificationStore = useNotificationStore()
