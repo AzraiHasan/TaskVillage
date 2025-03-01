@@ -1,7 +1,9 @@
 // middleware/role.ts
+import { useUserSession } from '#imports'
+import type { UserSessionData } from '~/types/userSessionData'
 
 export default defineNuxtRouteMiddleware((to) => {
-  const { loggedIn, user } = useUserSession()
+  const { loggedIn, session } = useUserSession()
   
   // Check if the route requires a specific role
   const requiredRole = to.meta.requiredRole
@@ -14,10 +16,10 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo(`/login?redirect=${to.fullPath}`)
   }
   
-  // Check if user has the required role
-  // For now, we're checking if the role exists in user.roles 
-  // (assuming roles would be an array in the user object)
-  const hasRole = user.value?.roles?.includes(requiredRole)
+  // Access roles safely with type casting
+  const userData = session.value as unknown as UserSessionData | null;
+  const userRoles = userData?.user?.roles || []
+  const hasRole = userRoles.includes(requiredRole.toString());
   
   // If user doesn't have the required role, redirect to unauthorized page
   if (!hasRole) {

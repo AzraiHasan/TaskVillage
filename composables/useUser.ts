@@ -5,7 +5,7 @@ export interface User {
   email: string
   avatar: string
   workspaces: number[]
-  roles: string[]
+  roles: string[] // Add roles property for role-based access control
 }
 export const useUser = () => {
   // Create a reactive user state that persists across components
@@ -24,7 +24,7 @@ export const useUser = () => {
       email: 'sarah@taskvillage.dev',
       avatar: '/placeholder-avatar.png',
       workspaces: [1, 2],
-      roles: ['developer'] // added to fix role.ts type error
+      roles: ['user']
     }
 
     // Set the user state

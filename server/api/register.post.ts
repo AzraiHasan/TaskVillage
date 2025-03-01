@@ -37,7 +37,8 @@ export default defineEventHandler(async (event) => {
         name,
         email,
         avatar: '/placeholder-avatar.png',
-        workspaces: [1, 2] // Default workspaces for new users
+        workspaces: [1, 2],
+      roles: ['developer', 'manager'] 
       }
     })
     
