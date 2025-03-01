@@ -1,30 +1,32 @@
-<!-- components/user/UserProfile -->
-
+<!-- components/user/UserProfile.vue -->
 <template>
  <div class="max-w-2xl mx-auto">
   <UCard>
    <div class="text-center">
-    <UAvatar :src="user.avatar" size="2xl" class="mb-4" />
-    <h2 class="text-xl font-semibold">{{ user.name }}</h2>
-    <p class="text-gray-600">{{ user.role }}</p>
+    <UAvatar :src="profileUser.avatar || '/placeholder-avatar.png'" size="2xl" class="mb-4" />
+    <h2 class="text-xl font-semibold">{{ profileUser.name }}</h2>
+    <p class="text-gray-600">{{ profileUser.role || getUserRole(profileUser) }}</p>
 
     <div class="flex justify-center gap-4 mt-4">
      <UButton v-if="!isCurrentUser" :variant="isFollowing ? 'outline' : 'solid'" @click="toggleFollow">
       {{ isFollowing ? 'Following' : 'Follow' }}
      </UButton>
+     <UButton v-if="isCurrentUser" variant="outline" to="/profile/edit">
+      Edit Profile
+     </UButton>
     </div>
 
     <div class="grid grid-cols-3 gap-4 mt-6">
      <div>
-      <div class="font-semibold">{{ user.tasksCompleted }}</div>
+      <div class="font-semibold">{{ profileUser.tasksCompleted || '0' }}</div>
       <div class="text-sm text-gray-600">Tasks</div>
      </div>
      <div>
-      <div class="font-semibold">{{ user.followers }}</div>
+      <div class="font-semibold">{{ profileUser.followers || '0' }}</div>
       <div class="text-sm text-gray-600">Followers</div>
      </div>
      <div>
-      <div class="font-semibold">{{ user.following }}</div>
+      <div class="font-semibold">{{ profileUser.following || '0' }}</div>
       <div class="text-sm text-gray-600">Following</div>
      </div>
     </div>
@@ -33,23 +35,68 @@
 
   <div class="mt-6">
    <h3 class="font-medium mb-4">Recent Activity</h3>
-   <TaskFeed :userId="user.id" />
+   <TaskFeed :userId="profileUser.id" />
   </div>
  </div>
 </template>
 
 <script setup>
-const user = ref({
- id: 1,
- name: 'Sarah Chen',
- role: 'UI Designer',
- avatar: '/avatar1.jpg',
- tasksCompleted: 45,
- followers: 128,
- following: 91
+import { useUserSession } from '#imports'
+import { useUser } from '~/composables/useUser'
+
+const props = defineProps({
+ userId: {
+  type: String,
+  default: null
+ }
 })
 
-const isCurrentUser = ref(false)
+// Get current user from session
+const { session } = useUserSession()
+const { user: currentUser } = useUser()
+
+// Initialize with current user data (for now)
+// In a real app, we would fetch this data based on userId prop
+const profileUser = computed(() => {
+ // If viewing a specific user profile
+ if (props.userId) {
+  // Fetch that user's profile - for now, return placeholder data
+  return {
+   id: props.userId,
+   name: 'Sarah Chen', // Placeholder
+   avatar: '/placeholder-avatar.png',
+   tasksCompleted: 45,
+   followers: 128,
+   following: 91
+  }
+ }
+
+ // Default to current user
+ return {
+  ...session.value?.user,
+  tasksCompleted: 45, // Placeholder stats
+  followers: 128,
+  following: 91
+ }
+})
+
+// Check if the profile being viewed belongs to the current user
+const isCurrentUser = computed(() => {
+ if (!session.value?.user) return false
+ return session.value.user.id === profileUser.value.id
+})
+
+// Format user role for display
+const getUserRole = (user) => {
+ if (!user || !user.roles || !user.roles.length) return 'User'
+ // Return first role with capitalized first letter
+ return user.roles[0].charAt(0).toUpperCase() + user.roles[0].slice(1)
+}
+
 const isFollowing = ref(false)
-const toggleFollow = () => { /* TODO */ }
+const toggleFollow = () => {
+ // Placeholder functionality
+ isFollowing.value = !isFollowing.value
+ // In a full implementation, we would call an API endpoint to follow/unfollow
+}
 </script>
