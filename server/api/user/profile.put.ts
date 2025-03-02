@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     const session = await requireUserSession(event)
     
     // Validate request body
-    const { name, email } = await readValidatedBody(event, updateSchema.parse)
+    const { name, email, avatar } = await readValidatedBody(event, updateSchema.parse)
     
     // Use type assertion to tell TypeScript about the user structure
     const user = session.user as User
@@ -33,7 +33,8 @@ export default defineEventHandler(async (event) => {
       user: {
         ...user, // Preserve all existing properties
         name,
-        email
+        email,
+        avatar: avatar || user.avatar
       }
     })
     

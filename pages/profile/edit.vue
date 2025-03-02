@@ -1,81 +1,97 @@
-<!-- pages/profile/edit.vue (modified) -->
+<!-- pages/profile/edit.vue (fixed script setup tag) -->
 <template>
- <UContainer>
-  <div class="max-w-2xl mx-auto py-8">
-   <UCard>
-    <template #header>
-     <div class="flex justify-between items-center">
-      <h1 class="text-xl font-bold">Edit Profile</h1>
-      <UButton variant="ghost" icon="i-heroicons-arrow-left" to="/dashboard">
-       Back
-      </UButton>
-     </div>
-    </template>
-
-    <UForm :state="form" @submit="onSubmit">
-     <div class="space-y-6">
-      <!-- Profile Avatar -->
-      <div class="flex flex-col items-center gap-4">
-       <UAvatar :src="avatarPreview || form.avatar || '/placeholder-avatar.png'" size="2xl" />
-       <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleAvatarChange" />
-       <UButton variant="soft" size="sm" @click="triggerFileInput">
-        Change Avatar
-        <template #trailing>
-         <Icon name="heroicons:camera" />
+  <UContainer>
+    <div class="max-w-2xl mx-auto py-8">
+      <UCard>
+        <template #header>
+          <div class="flex justify-between items-center">
+            <h1 class="text-xl font-bold">Edit Profile</h1>
+            <UButton variant="ghost" icon="i-heroicons-arrow-left" to="/dashboard">
+              Back
+            </UButton>
+          </div>
         </template>
-       </UButton>
-       <p v-if="avatarError" class="text-xs text-red-500">{{ avatarError }}</p>
-      </div>
 
-      <!-- Profile Fields -->
-      <UFormGroup label="Name" name="name" required :error="errors.name">
-       <UInput v-model="form.name" placeholder="Your name" />
-      </UFormGroup>
+        <UForm :state="form" @submit="onSubmit">
+          <div class="space-y-6">
+            <!-- Profile Avatar -->
+            <div class="flex flex-col items-center gap-4">
+              <UAvatar :src="avatarPreview || form.avatar || '/placeholder-avatar.png'" size="2xl" />
+              <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleAvatarChange" />
+              <UButton variant="soft" size="sm" @click="triggerFileInput">
+                Change Avatar
+                <template #trailing>
+                  <Icon name="heroicons:camera" />
+                </template>
+              </UButton>
+              <p v-if="avatarError" class="text-xs text-red-500">{{ avatarError }}</p>
+            </div>
 
-      <UFormGroup label="Email" name="email" required :error="errors.email">
-       <UInput v-model="form.email" placeholder="Your email" type="email" />
-      </UFormGroup>
+            <!-- Profile Fields -->
+            <UFormGroup label="Name" name="name" required :error="errors.name">
+              <UInput v-model="form.name" placeholder="Your name" />
+            </UFormGroup>
 
-      <UFormGroup label="Role" name="role">
-       <UInput v-model="form.role" placeholder="Your role" disabled />
-       <template #description>
-        <span class="text-xs text-gray-500">Role cannot be changed</span>
-       </template>
-      </UFormGroup>
+            <UFormGroup label="Email" name="email" required :error="errors.email">
+              <UInput v-model="form.email" placeholder="Your email" type="email" />
+            </UFormGroup>
 
-      <!-- Workspaces -->
-      <div>
-       <h3 class="text-sm font-medium mb-2">Workspaces</h3>
-       <div class="space-y-2">
-        <div v-for="workspace in workspaces" :key="workspace.id" class="flex items-center gap-2">
-         <UCheckbox v-model="form.workspaces" :value="workspace.id" disabled />
-         <span>{{ workspace.name }}</span>
-        </div>
-       </div>
-       <p class="text-xs text-gray-500 mt-1">Workspace assignments are managed by administrators</p>
-      </div>
-     </div>
+            <UFormGroup label="Role" name="role">
+              <UInput v-model="form.role" placeholder="Your role" disabled />
+              <template #description>
+                <span class="text-xs text-gray-500">Role cannot be changed</span>
+              </template>
+            </UFormGroup>
 
-     <div class="flex justify-end gap-2 mt-6">
-      <UButton to="/dashboard" variant="ghost">
-       Cancel
-      </UButton>
-      <UButton type="submit" color="primary" :loading="isSubmitting" :disabled="isSubmitting">
-       Save Changes
-      </UButton>
-     </div>
-    </UForm>
+            <!-- Workspaces with Permission Roles -->
+            <div>
+              <h3 class="text-sm font-medium mb-2">Workspace Permissions</h3>
+              <div class="space-y-2">
+                <div v-for="workspace in workspaces" :key="workspace.id"
+                  class="flex items-center justify-between p-2 border rounded-md">
+                  <div class="flex items-center gap-2">
+                    <UIcon name="i-heroicons-building-office-2" class="text-gray-500" />
+                    <span>{{ workspace.name }}</span>
+                  </div>
+                  <UBadge :color="getRoleBadgeColor(getUserRoleInWorkspace(workspace.id))">
+                    {{ getUserRoleInWorkspace(workspace.id) }}
+                  </UBadge>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Workspace permissions are managed by administrators</p>
+            </div>
+          </div>
 
-    <!-- Error Alert -->
-    <UAlert v-if="error" class="mt-4" color="red" variant="soft" icon="i-heroicons-exclamation-circle" :title="error" />
-   </UCard>
-  </div>
- </UContainer>
+          <div class="flex justify-end gap-2 mt-6">
+            <UButton to="/dashboard" variant="ghost">
+              Cancel
+            </UButton>
+            <UButton type="submit" color="primary" :loading="isSubmitting" :disabled="isSubmitting">
+              Save Changes
+            </UButton>
+          </div>
+        </UForm>
+
+        <!-- Error Alert -->
+        <UAlert v-if="error" class="mt-4" color="red" variant="soft" icon="i-heroicons-exclamation-circle"
+          :title="error" />
+      </UCard>
+    </div>
+  </UContainer>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { z } from 'zod'
-import { useUserSession } from '#imports'
+import { useUserSession, useToast, useRouter, ref, reactive, onMounted } from '#imports'
+import { useUser } from '~/composables/useUser'
+
+// Define the WorkspaceRole type within this file (since we can't import it as a type)
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest'
+
+// Type guard for the new permission structure
+function hasWorkspacePermissions(user: any): user is { workspacePermissions: Array<{ workspaceId: number, role: WorkspaceRole }> } {
+  return user && Array.isArray(user.workspacePermissions)
+}
 
 // Get user data from session
 const { session, fetch: refreshSession } = useUserSession()
@@ -103,7 +119,7 @@ const form = reactive({
  email: '',
  avatar: '',
  role: '',
- workspaces: []
+ workspacePermissions: []
 })
 
 const errors = reactive({
@@ -120,6 +136,42 @@ const schema = z.object({
  email: z.string().email('Please enter a valid email address')
 })
 
+// Get the user's role in a specific workspace
+const getUserRoleInWorkspace = (workspaceId: number): WorkspaceRole => {
+  if (!session.value?.user) return 'guest'
+  
+  const user = session.value.user
+  
+  // Check if user has the new permissions structure
+  if (hasWorkspacePermissions(user)) {
+    const permission = user.workspacePermissions.find(wp => wp.workspaceId === workspaceId)
+    return permission?.role || 'guest'
+  }
+  
+  // Fall back to the old workspaces array structure
+  if (Array.isArray(user.workspaces) && user.workspaces.includes(workspaceId)) {
+    return 'member'
+  }
+  
+  return 'guest'
+}
+
+// Get badge color based on role
+const getRoleBadgeColor = (role) => {
+  switch(role) {
+    case 'owner':
+      return 'green'
+    case 'admin':
+      return 'blue'
+    case 'member':
+      return 'purple'
+    case 'guest':
+      return 'gray'
+    default:
+      return 'gray'
+  }
+}
+
 // Initialize form with current user data
 onMounted(() => {
  if (session.value?.user) {
@@ -128,7 +180,7 @@ onMounted(() => {
   form.email = user.email || ''
   form.avatar = user.avatar || ''
   form.role = user.roles ? user.roles[0] : 'User'
-  form.workspaces = user.workspaces || []
+  form.workspacePermissions = user.workspacePermissions || []
  }
 })
 

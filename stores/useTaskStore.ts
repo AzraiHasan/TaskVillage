@@ -257,26 +257,33 @@ privateTasks: (state): Task[] =>
 },
 
     setWorkspace(workspaceId: number | null) {
-      try {
-        if (workspaceId) {
-          const { hasWorkspaceAccess } = useUser()
-          if (!hasWorkspaceAccess(workspaceId)) {
-            throw new TaskVillageError('No access to workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
-          }
-        }
-        this.workspaceId = workspaceId
-        this.taskFilters = {
-          status: null,
-          priority: null,
-          assignee: null
-        }
-      } catch (error) {
-        this.lastError = error instanceof TaskVillageError 
-          ? error 
-          : new TaskVillageError('Failed to set workspace', ErrorCode.OPERATION_FAILED)
-        throw this.lastError
+  try {
+    if (workspaceId) {
+      const { hasWorkspaceAccess, hasWorkspacePermission } = useUser()
+      
+      // First check if user has any access to this workspace
+      if (!hasWorkspaceAccess(workspaceId)) {
+        throw new TaskVillageError('No access to workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
       }
-    },
+      
+      // For certain operations on tasks, we might want to check specific permissions
+      // This could be used elsewhere in the task store
+      // Example: const canManageTasks = hasWorkspacePermission(workspaceId, 'member')
+    }
+    
+    this.workspaceId = workspaceId
+    this.taskFilters = {
+      status: null,
+      priority: null,
+      assignee: null
+    }
+  } catch (error) {
+    this.lastError = error instanceof TaskVillageError 
+      ? error 
+      : new TaskVillageError('Failed to set workspace', ErrorCode.OPERATION_FAILED)
+    throw this.lastError
+  }
+},
 
     determineStatus(progress: number): Status {
   if (progress === 0) {
@@ -486,54 +493,77 @@ notificationStore.addNotification({
       }
     },
 
-    async updateTask(taskId: number, updateData: Partial<Omit<Task, 'id' | 'createdAt' | 'likes' | 'likedBy' | 'comments'>>): Promise<boolean> {
-      this.isLoading = true
-      this.lastError = null
+async updateTask(taskId: number, updateData: Partial<Omit<Task, 'id' | 'createdAt' | 'likes' | 'likedBy' | 'comments'>>): Promise<boolean> {
+  this.isLoading = true
+  this.lastError = null
 
-      try {
-        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
-        if (taskIndex === -1) {
-          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+  try {
+    const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+    if (taskIndex === -1) {
+      throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+    }
+
+    const task = this.tasks[taskIndex]
+    
+    if (task.workspaceId === null) {
+      // No workspace associated - can proceed
+    } else {
+      const { hasWorkspaceAccess, hasWorkspacePermission } = useUser()
+      
+      // First check if user has access to the workspace
+      if (!hasWorkspaceAccess(task.workspaceId)) {
+        throw new TaskVillageError('No access to workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
+      }
+      
+      // Check if user has permission to update tasks (must be at least a member)
+      if (!hasWorkspacePermission(task.workspaceId, 'member')) {
+        throw new TaskVillageError('You need member permissions to update tasks', ErrorCode.WORKSPACE_ACCESS_DENIED)
+      }
+      
+      // If changing the workspace, check if user has admin permissions
+      if (updateData.workspaceId && updateData.workspaceId !== task.workspaceId) {
+        if (!hasWorkspacePermission(task.workspaceId, 'admin')) {
+          throw new TaskVillageError('You need admin permissions to move tasks between workspaces', ErrorCode.WORKSPACE_ACCESS_DENIED)
         }
-
-        const task = this.tasks[taskIndex]
         
-        const { hasWorkspaceAccess } = useUser()
-        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
-          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        // Also check if the user has access to the target workspace
+        if (!hasWorkspaceAccess(updateData.workspaceId)) {
+          throw new TaskVillageError('No access to target workspace', ErrorCode.WORKSPACE_ACCESS_DENIED)
         }
-
-        // Update the task with new data
-        this.tasks[taskIndex] = {
-          ...task,
-          ...updateData
-        }
-
-        const notificationStore = useNotificationStore()
-const { user } = useUser()
-
-notificationStore.addNotification({
-  userId: 'all',
-  taskId: task.id,
-  taskTitle: task.title,
-  user: {
-    name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || '/placeholder-avatar.png'
-  },
-  action: 'updated a task',
-  read: false
-})
-
-        return true
-      } catch (error) {
-        this.lastError = error instanceof TaskVillageError 
-          ? error 
-          : new TaskVillageError('Failed to update task', ErrorCode.OPERATION_FAILED)
-        throw this.lastError
-      } finally {
-        this.isLoading = false
       }
     }
+
+    // Update the task with new data
+    this.tasks[taskIndex] = {
+      ...task,
+      ...updateData
+    }
+
+    const notificationStore = useNotificationStore()
+    const { user } = useUser()
+
+    notificationStore.addNotification({
+      userId: 'all',
+      taskId: task.id,
+      taskTitle: task.title,
+      user: {
+        name: user.value?.name || 'Current User',
+        avatar: user.value?.avatar || '/placeholder-avatar.png'
+      },
+      action: 'updated a task',
+      read: false
+    })
+
+    return true
+  } catch (error) {
+    this.lastError = error instanceof TaskVillageError 
+      ? error 
+      : new TaskVillageError('Failed to update task', ErrorCode.OPERATION_FAILED)
+    throw this.lastError
+  } finally {
+    this.isLoading = false
+  }
+}
     
   },
 

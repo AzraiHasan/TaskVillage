@@ -1,12 +1,23 @@
 // composables/useUser.ts
+
+// Define workspace permission roles
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest'
+
+// Define workspace permission structure
+export interface WorkspacePermission {
+  workspaceId: number
+  role: WorkspaceRole
+}
+
 export interface User {
   id: string
   name: string
   email: string
   avatar: string
-  workspaces: number[]
-  roles: string[] // Add roles property for role-based access control
+  workspacePermissions: WorkspacePermission[] // Changed from workspaces: number[]
+  roles: string[] // Global roles for role-based access control
 }
+
 export const useUser = () => {
   // Create a reactive user state that persists across components
   const user = useState<User | null>('user', () => null)
@@ -23,7 +34,10 @@ export const useUser = () => {
       name: 'Sarah Chen',
       email: 'sarah@taskvillage.dev',
       avatar: '/placeholder-avatar.png',
-      workspaces: [1, 2],
+      workspacePermissions: [
+        { workspaceId: 1, role: 'owner' },
+        { workspaceId: 2, role: 'member' }
+      ],
       roles: ['user']
     }
 
@@ -59,7 +73,32 @@ export const useUser = () => {
 
   // Check if user has access to a specific workspace
   const hasWorkspaceAccess = (workspaceId: number) => {
-    return user.value?.workspaces.includes(workspaceId) ?? false
+    return user.value?.workspacePermissions.some(wp => wp.workspaceId === workspaceId) ?? false
+  }
+
+  // Check if user has a specific permission level (or higher) for a workspace
+  const hasWorkspacePermission = (workspaceId: number, requiredRole: WorkspaceRole) => {
+    if (!user.value) return false
+    
+    const workspace = user.value.workspacePermissions.find(wp => wp.workspaceId === workspaceId)
+    if (!workspace) return false
+    
+    // Define role hierarchy
+    const roleHierarchy = {
+      'guest': 0,
+      'member': 1,
+      'admin': 2,
+      'owner': 3
+    }
+    
+    // Check if user's role is sufficient
+    return roleHierarchy[workspace.role] >= roleHierarchy[requiredRole]
+  }
+
+  // Get all workspaces the user has access to
+  const getUserWorkspaces = () => {
+    if (!user.value) return []
+    return user.value.workspacePermissions.map(wp => wp.workspaceId)
   }
 
   // Debug helper
@@ -73,6 +112,8 @@ export const useUser = () => {
     initializeDevUser,
     clearUser,
     hasWorkspaceAccess,
+    hasWorkspacePermission,
+    getUserWorkspaces,
     getCurrentUser,
     logout
   }
