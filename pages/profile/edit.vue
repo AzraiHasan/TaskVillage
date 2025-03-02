@@ -6,7 +6,7 @@
         <template #header>
           <div class="flex justify-between items-center">
             <h1 class="text-xl font-bold">Edit Profile</h1>
-            <UButton variant="ghost" icon="i-heroicons-arrow-left" to="/dashboard">
+            <UButton variant="ghost" icon="i-heroicons-arrow-left" to="/dashboard">v
               Back
             </UButton>
           </div>
@@ -82,65 +82,77 @@
 
 <script setup lang="ts">
 import { z } from 'zod'
-import { useUserSession, useToast, useRouter, ref, reactive, onMounted } from '#imports'
-import { useUser } from '~/composables/useUser'
+import type { WorkspaceRole } from '~/composables/useUser'
+import type { User } from '~/composables/useUser'
 
-// Define the WorkspaceRole type within this file (since we can't import it as a type)
-type WorkspaceRole = 'owner' | 'admin' | 'member' | 'guest'
-
-// Type guard for the new permission structure
+// Type guard for user with workspace permissions
 function hasWorkspacePermissions(user: any): user is { workspacePermissions: Array<{ workspaceId: number, role: WorkspaceRole }> } {
   return user && Array.isArray(user.workspacePermissions)
 }
 
-// Get user data from session
-const { session, fetch: refreshSession } = useUserSession()
-const toast = useToast()
-const router = useRouter()
-const fileInput = ref(null)
-const avatarPreview = ref(null)
-const avatarFile = ref(null)
-const avatarError = ref(null)
+// Typescript type for the request body
+interface ProfileUpdateRequest {
+  name: string
+  email: string
+  avatar: string | null
+}
+
+// Set auth middleware to protect this page
+definePageMeta({
+  middleware: ['auth']
+})
 
 // Mock workspaces data
 const workspaces = [
- { id: 1, name: 'Marketing Team' },
- { id: 2, name: 'Development Team' }
+  { id: 1, name: 'Marketing Team' },
+  { id: 2, name: 'Development Team' }
 ]
 
-// Ensure we're logged in
-definePageMeta({
- middleware: ['auth']
-})
+const { session, fetch: refreshSession } = useUserSession()
+const toast = useToast()
+const router = useRouter()
+const fileInput = ref<HTMLInputElement | null>(null)
+const avatarPreview = ref<string | null>(null)
+const avatarFile = ref<File | null>(null)
+const avatarError = ref<string | null>(null)
 
 // Form state initialization
-const form = reactive({
- name: '',
- email: '',
- avatar: '',
- role: '',
- workspacePermissions: []
+const form = reactive<{
+  name: string
+  email: string
+  avatar: string
+  role: string
+  workspacePermissions: Array<{ workspaceId: number, role: WorkspaceRole }>
+}>({
+  name: '',
+  email: '',
+  avatar: '',
+  role: '',
+  workspacePermissions: []
 })
 
-const errors = reactive({
- name: '',
- email: ''
+const errors = reactive<{
+  name: string
+  email: string
+}>({
+  name: '',
+  email: ''
 })
 
 const isSubmitting = ref(false)
-const error = ref('')
+const error = ref<string | null>(null)
 
 // Form validation schema
 const schema = z.object({
- name: z.string().min(2, 'Name must be at least 2 characters'),
- email: z.string().email('Please enter a valid email address')
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address')
 })
 
 // Get the user's role in a specific workspace
 const getUserRoleInWorkspace = (workspaceId: number): WorkspaceRole => {
   if (!session.value?.user) return 'guest'
   
-  const user = session.value.user
+  const user = session.value.user as User
   
   // Check if user has the new permissions structure
   if (hasWorkspacePermissions(user)) {
@@ -148,155 +160,161 @@ const getUserRoleInWorkspace = (workspaceId: number): WorkspaceRole => {
     return permission?.role || 'guest'
   }
   
-  // Fall back to the old workspaces array structure
-  if (Array.isArray(user.workspaces) && user.workspaces.includes(workspaceId)) {
-    return 'member'
-  }
-  
   return 'guest'
 }
 
 // Get badge color based on role
-const getRoleBadgeColor = (role) => {
+const getRoleBadgeColor = (role: WorkspaceRole) => {
   switch(role) {
-    case 'owner':
-      return 'green'
-    case 'admin':
-      return 'blue'
-    case 'member':
-      return 'purple'
-    case 'guest':
-      return 'gray'
-    default:
-      return 'gray'
+    case 'owner': return 'green'
+    case 'admin': return 'blue'
+    case 'member': return 'purple'
+    case 'guest': return 'gray'
+    default: return 'gray'
   }
 }
 
 // Initialize form with current user data
 onMounted(() => {
- if (session.value?.user) {
-  const user = session.value.user
-  form.name = user.name || ''
-  form.email = user.email || ''
-  form.avatar = user.avatar || ''
-  form.role = user.roles ? user.roles[0] : 'User'
-  form.workspacePermissions = user.workspacePermissions || []
- }
+  if (session.value?.user) {
+    const user = session.value.user as User
+    form.name = user.name || ''
+    form.email = user.email || ''
+    form.avatar = user.avatar || ''
+    form.role = user.roles ? user.roles[0] : 'User'
+    form.workspacePermissions = hasWorkspacePermissions(user) 
+      ? user.workspacePermissions 
+      : []
+  }
 })
 
 // Trigger file input click
 const triggerFileInput = () => {
- fileInput.value.click()
+  if (fileInput.value) {
+    fileInput.value.click()
+  }
 }
 
 // Handle avatar file selection
-const handleAvatarChange = (event) => {
- const file = event.target.files[0]
- avatarError.value = null
+const handleAvatarChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  avatarError.value = null
 
- if (!file) return
+  if (!file) return
 
- // Validate file type
- if (!file.type.startsWith('image/')) {
-  avatarError.value = 'Please select an image file'
-  return
- }
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    avatarError.value = 'Please select an image file'
+    return
+  }
 
- // Validate file size (max 5MB)
- if (file.size > 5 * 1024 * 1024) {
-  avatarError.value = 'Image size should not exceed 5MB'
-  return
- }
+  // Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    avatarError.value = 'Image size should not exceed 5MB'
+    return
+  }
 
- // Store file for upload
- avatarFile.value = file
+  // Store file for upload
+  avatarFile.value = file
 
- // Create preview
- const reader = new FileReader()
- reader.onload = (e) => {
-  avatarPreview.value = e.target.result
- }
- reader.readAsDataURL(file)
+  // Create preview
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    avatarPreview.value = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
 }
 
 // Upload avatar function
 const uploadAvatar = async () => {
- if (!avatarFile.value) return null
+  if (!avatarFile.value) return null
 
- try {
-  const formData = new FormData()
-  formData.append('avatar', avatarFile.value)
+  try {
+    const formData = new FormData()
+    formData.append('avatar', avatarFile.value)
 
-  const response = await $fetch('/api/user/avatar', {
-   method: 'POST',
-   body: formData
-  })
+    const response = await $fetch<{ avatar: string }>('/api/user/avatar', {
+      method: 'POST',
+      body: formData
+    })
 
-  return response.avatar
- } catch (err) {
-  console.error('Avatar upload error:', err)
-  throw new Error('Failed to upload avatar')
- }
+    return response.avatar
+  } catch (err) {
+    console.error('Avatar upload error:', err)
+    throw new Error('Failed to upload avatar')
+  }
 }
 
 // Form submission handler
 const onSubmit = async () => {
- // Reset errors
- error.value = ''
- errors.name = ''
- errors.email = ''
- avatarError.value = null
+  // Reset errors
+  error.value = null
+  errors.name = ''
+  errors.email = ''
+  avatarError.value = null
 
- try {
-  // Validate form data
-  schema.parse(form)
+  try {
+    // Validate form data
+    schema.parse(form)
 
-  isSubmitting.value = true
+    isSubmitting.value = true
 
-  // Upload avatar if a new one is selected
-  let avatarUrl = form.avatar
-  if (avatarFile.value) {
-   avatarUrl = await uploadAvatar()
-  }
+    // More explicit avatar handling
+    const avatarUrl = avatarFile.value 
+      ? await uploadAvatar() 
+      : (form.avatar || null)
 
-  // Call the update profile API endpoint
-  await $fetch('/api/user/profile', {
-   method: 'PUT',
-   body: {
-    name: form.name,
-    email: form.email,
-    avatar: avatarUrl
-   }
-  })
-
-  // Refresh session data to get updated user info
-  await refreshSession()
-
-  // Show success message
-  toast.add({
-   title: 'Success!',
-   description: 'Your profile has been updated',
-   color: 'green'
-  })
-
-  // Redirect back to dashboard
-  router.push('/dashboard')
- } catch (err) {
-  if (err instanceof z.ZodError) {
-   // Handle validation errors
-   err.errors.forEach(e => {
-    if (e.path.length > 0) {
-     errors[e.path[0]] = e.message
+    const requestBody: ProfileUpdateRequest = {
+      name: form.name,
+      email: form.email,
+      avatar: avatarUrl
     }
-   })
-  } else if (err.message === 'Failed to upload avatar') {
-   avatarError.value = 'Failed to upload avatar. Please try again.'
-  } else {
-   // Handle server errors
-   error.value = err.data?.message || 'Something went wrong. Please try again.'
+
+    const response = await fetch('/api/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    // Optional: Add error handling for non-200 responses
+    if (!response.ok) {
+      throw new Error('Profile update failed')
+    }
+
+    // Refresh session data to get updated user info
+    await refreshSession()
+
+    // Show success message
+    toast.add({
+      title: 'Success!',
+      description: 'Your profile has been updated',
+      color: 'green'
+    })
+
+    // Redirect back to dashboard
+    router.push('/dashboard')
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      // Handle validation errors
+      err.errors.forEach(e => {
+        if (e.path.length > 0) {
+          errors[e.path[0] as keyof typeof errors] = e.message
+        }
+      })
+    } else if (err instanceof Error && err.message === 'Failed to upload avatar') {
+      avatarError.value = 'Failed to upload avatar. Please try again.'
+    } else {
+      // Handle server errors
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Something went wrong. Please try again.'
+      error.value = errorMessage
+    }
+  } finally {
+    isSubmitting.value = false
   }
- } finally {
-  isSubmitting.value = false
- }
 }
 </script>
