@@ -202,8 +202,15 @@ const formatTime = (timestamp) => {
   return 'Just now'
 }
 
-// Set initial workspace
+// Set initial workspace with permission check
 onMounted(() => {
-  taskStore.setWorkspace(1) // Set to first workspace by default
+  const { hasWorkspaceAccess } = useUser()
+
+  // Try to set default workspace only if user has access
+  if (hasWorkspaceAccess(1)) {
+    taskStore.setWorkspace(1)
+  } else if (hasWorkspaceAccess(2)) {
+    taskStore.setWorkspace(2)
+  }
 })
 </script>

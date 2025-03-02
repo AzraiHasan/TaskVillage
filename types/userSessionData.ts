@@ -1,6 +1,13 @@
 // types/userSessionData.ts
-import type { User } from '~/composables/useUser'
+import type { WorkspaceRole, WorkspacePermission } from '~/composables/useUser'
 
 export interface UserSessionData {
-  user: User
+  user: {
+    id: string
+    name: string
+    email: string
+    avatar: string
+    workspacePermissions: WorkspacePermission[]
+    roles: string[]
+  }
 }

@@ -1,4 +1,3 @@
-<!-- app.vue -->
 <template>
   <div>
     <NuxtPage />
@@ -8,14 +7,16 @@
 <script setup>
 import { useTaskStore } from '~/stores/useTaskStore'
 import { useUser } from '~/composables/useUser'
+import { useSyncSession } from '~/composables/useSyncSession'
 
 console.log('App initialization starting...')
 
-// Initialize our user state first
-const { initializeDevUser, getCurrentUser } = useUser()
-initializeDevUser()
+// Initialize our user state first using the sync composable
+const { syncSessionData } = useSyncSession()
+syncSessionData()
 
 // Get the current user after initialization
+const { getCurrentUser } = useUser()
 const currentUser = getCurrentUser()
 console.log('User initialized, current user:', currentUser || 'No user found')
 

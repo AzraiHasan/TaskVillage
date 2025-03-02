@@ -15,13 +15,16 @@ export default defineEventHandler(async (event) => {
   if (email === 'sarah@taskvillage.dev' && password === 'password123') {
     // Create session data with roles
     const userData: UserSessionData['user'] = {
-      id: 'user1',
-      name: 'Sarah Chen',
-      email: 'sarah@taskvillage.dev',
-      avatar: '/placeholder-avatar.png',
-      workspaces: [1, 2],
-      roles: ['user'] // Add default role
-    }
+  id: 'user1',
+  name: 'Sarah Chen',
+  email: 'sarah@taskvillage.dev',
+  avatar: '/placeholder-avatar.png',
+  workspacePermissions: [
+    { workspaceId: 1, role: 'owner' },
+    { workspaceId: 2, role: 'member' }
+  ],
+  roles: ['user']
+}
     
     // Set the user session
     await setUserSession(event, { user: userData })

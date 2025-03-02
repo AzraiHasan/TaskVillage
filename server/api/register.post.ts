@@ -33,13 +33,16 @@ export default defineEventHandler(async (event) => {
     
     // Create a user session right after registration
     const userData: UserSessionData['user'] = {
-      id: `user_${Date.now()}`, // Generate a temporary ID
-      name,
-      email,
-      avatar: '/placeholder-avatar.png',
-      workspaces: [1, 2],
-      roles: ['developer', 'manager']
-    }
+  id: `user_${Date.now()}`,
+  name,
+  email,
+  avatar: '/placeholder-avatar.png',
+  workspacePermissions: [
+    { workspaceId: 1, role: 'member' },
+    { workspaceId: 2, role: 'member' }
+  ],
+  roles: ['user']
+}
     
     await setUserSession(event, { user: userData })
     

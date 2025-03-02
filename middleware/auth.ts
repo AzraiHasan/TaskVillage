@@ -27,4 +27,13 @@ export default defineNuxtRouteMiddleware((to) => {
   if (!user.value && process.dev) {
     initializeDevUser()
   }
+
+  // Add workspace permission check
+  const workspaceId = Number(to.params.workspaceId) || null
+  if (workspaceId && user.value) {
+    const { hasWorkspaceAccess } = useUser()
+    if (!hasWorkspaceAccess(workspaceId)) {
+      return navigateTo('/unauthorized')
+    }
+  }
 })
