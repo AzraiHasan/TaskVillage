@@ -25,96 +25,36 @@ export const useUser = () => {
   const { clear: clearSession } = useUserSession()
 
   // Function to set up our development user
-  const initializeDevUser = () => {
-    console.log('Initializing development user...')
-    
-    // Define our development user with consistent information
-    const devUser: User = {
-      id: 'user1',
-      name: 'Sarah Chen',
-      email: 'sarah@taskvillage.dev',
-      avatar: '/placeholder-avatar.png',
-      workspacePermissions: [
-        { workspaceId: 1, role: 'owner' },
-        { workspaceId: 2, role: 'member' }
-      ],
-      roles: ['user']
-    }
-
-    // Set the user state
-    user.value = devUser
-    console.log('Development user initialized:', user.value)
-  }
-
-  // Function to clear user state (for logout)
-  const clearUser = () => {
-    user.value = null
-  }
-
-  // Logout function
-  const logout = async () => {
+const initializeDevUser = () => {
     try {
-      // Call the logout API endpoint
-      await $fetch('/api/logout', { method: 'POST' })
+      console.log('Initializing development user...')
       
-      // Clear client-side session
-      await clearSession()
-      
-      // Clear local user state
-      clearUser()
-      
-      // Redirect to login page
-      return router.push('/login')
+      // Define our development user with consistent information
+      const devUser: User = {
+        id: 'user1',
+        name: 'Sarah Chen',
+        email: 'sarah@taskvillage.dev',
+        avatar: '/placeholder-avatar.png',
+        workspacePermissions: [
+          { workspaceId: 1, role: 'owner' },
+          { workspaceId: 2, role: 'member' }
+        ],
+        roles: ['user']
+      }
+
+      // Validate workspace permissions
+      if (!devUser.workspacePermissions || devUser.workspacePermissions.length === 0) {
+        console.error('User initialization failed: No workspace permissions')
+        throw new Error('Invalid user configuration')
+      }
+
+      // Set the user state
+      user.value = devUser
+      console.log('Development user initialized:', user.value)
     } catch (error) {
-      console.error('Logout failed:', error)
-      throw error
+      console.error('User initialization error:', error)
+      // Reset user state to null in case of initialization failure
+      user.value = null
     }
-  }
-
-  // Check if user has access to a specific workspace
-  const hasWorkspaceAccess = (workspaceId: number) => {
-    return user.value?.workspacePermissions.some(wp => wp.workspaceId === workspaceId) ?? false
-  }
-
-  // Check if user has a specific permission level (or higher) for a workspace
-  const hasWorkspacePermission = (workspaceId: number, requiredRole: WorkspaceRole) => {
-    if (!user.value) return false
-    
-    const workspace = user.value.workspacePermissions.find(wp => wp.workspaceId === workspaceId)
-    if (!workspace) return false
-    
-    // Define role hierarchy
-    const roleHierarchy = {
-      'guest': 0,
-      'member': 1,
-      'admin': 2,
-      'owner': 3
-    }
-    
-    // Check if user's role is sufficient
-    return roleHierarchy[workspace.role] >= roleHierarchy[requiredRole]
-  }
-
-  // Get all workspaces the user has access to
-  const getUserWorkspaces = () => {
-    if (!user.value) return []
-    return user.value.workspacePermissions.map(wp => wp.workspaceId)
-  }
-
-  // Debug helper
-  const getCurrentUser = () => {
-    console.log('Getting current user:', user.value)
-    return user.value
-  }
-
-  return {
-    user,
-    initializeDevUser,
-    clearUser,
-    hasWorkspaceAccess,
-    hasWorkspacePermission,
-    getUserWorkspaces,
-    getCurrentUser,
-    logout
   }
 }
