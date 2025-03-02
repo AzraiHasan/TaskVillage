@@ -72,7 +72,8 @@ const form = reactive({
   name: '',
   email: '',
   password: '',
-  passwordConfirmation: ''
+  passwordConfirmation: '',
+  csrfToken: '' // Added field for CSRF token
 })
 
 const isLoading = ref(false)
@@ -82,6 +83,23 @@ const errors = reactive({
   email: '',
   password: '',
   passwordConfirmation: ''
+})
+
+// Fetch CSRF token when component mounts
+onMounted(async () => {
+  if (loggedIn.value) {
+    router.push('/dashboard')
+    return
+  }
+
+  try {
+    // Get CSRF token from the server
+    const { token } = await $fetch('/api/csrf')
+    form.csrfToken = token
+  } catch (err) {
+    console.error('Failed to fetch CSRF token:', err)
+    error.value = 'Failed to initialize security features. Please refresh the page.'
+  }
 })
 
 // Client-side validation schema using zod
@@ -106,13 +124,14 @@ const onSubmit = async () => {
 
     isLoading.value = true
 
-    // Call register API endpoint (to be implemented)
+    // Call register API endpoint with CSRF token
     await $fetch('/api/register', {
       method: 'POST',
       body: {
         name: form.name,
         email: form.email,
-        password: form.password
+        password: form.password,
+        csrfToken: form.csrfToken
       }
     })
 
@@ -127,10 +146,12 @@ const onSubmit = async () => {
       color: 'green'
     })
 
-    // Redirect to dashboard instead of login page
+    // Redirect to dashboard
     router.push('/dashboard')
   } catch (err) {
-    if (err instanceof z.ZodError) {
+    if (err.statusCode === 403) {
+      error.value = 'Security validation failed. Please refresh the page and try again.'
+    } else if (err instanceof z.ZodError) {
       // Handle validation errors
       err.errors.forEach(e => {
         if (e.path.length > 0) {

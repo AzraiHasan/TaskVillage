@@ -4,12 +4,21 @@ import type { UserSessionData } from '~/types/userSessionData'
 
 const bodySchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
+  csrfToken: z.string()
 })
 
 export default defineEventHandler(async (event) => {
   // Validate the request body
-  const { email, password } = await readValidatedBody(event, bodySchema.parse)
+  const { email, password, csrfToken } = await readValidatedBody(event, bodySchema.parse)
+
+  // Validate CSRF token
+  if (!validateCsrfToken(event, csrfToken)) {
+    throw createError({
+      statusCode: 403,
+      message: 'Invalid CSRF token'
+    })
+  }
   
   // For development: hardcoded credentials check
   if (email === 'sarah@taskvillage.dev' && password === 'password123') {

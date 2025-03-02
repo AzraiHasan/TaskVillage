@@ -64,11 +64,29 @@ onMounted(() => {
 
 const form = reactive({
   email: '',
-  password: ''
+  password: '',
+  csrfToken: '' // Added field for CSRF token
 })
 
 const isLoading = ref(false)
 const error = ref('')
+
+// Fetch CSRF token when component mounts
+onMounted(async () => {
+  if (loggedIn.value) {
+    router.push('/dashboard')
+    return
+  }
+
+  try {
+    // Get CSRF token from the server
+    const { token } = await $fetch('/api/csrf')
+    form.csrfToken = token
+  } catch (err) {
+    console.error('Failed to fetch CSRF token:', err)
+    error.value = 'Failed to initialize security features. Please refresh the page.'
+  }
+})
 
 const onSubmit = async () => {
   error.value = ''
@@ -79,7 +97,8 @@ const onSubmit = async () => {
       method: 'POST',
       body: {
         email: form.email,
-        password: form.password
+        password: form.password,
+        csrfToken: form.csrfToken
       }
     })
 
@@ -96,7 +115,11 @@ const onSubmit = async () => {
     // Redirect to dashboard
     router.push('/dashboard')
   } catch (err) {
-    error.value = err.statusMessage || 'Invalid email or password'
+    if (err.statusCode === 403) {
+      error.value = 'Security validation failed. Please refresh the page and try again.'
+    } else {
+      error.value = err.statusMessage || 'Invalid email or password'
+    }
   } finally {
     isLoading.value = false
   }

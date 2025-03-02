@@ -1,19 +1,29 @@
 // server/api/register.post.ts
 import { z } from 'zod'
 import bcrypt from 'bcrypt'
+import { validateCsrfToken } from '~/server/utils/csrf'
 import type { UserSessionData } from '~/types/userSessionData'
 
 // Define validation schema for registration
 const bodySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  csrfToken: z.string() // Add CSRF token field
 })
 
 export default defineEventHandler(async (event) => {
   try {
     // Validate request body
-    const { name, email, password } = await readValidatedBody(event, bodySchema.parse)
+    const { name, email, password, csrfToken } = await readValidatedBody(event, bodySchema.parse)
+    
+    // Validate CSRF token
+    if (!validateCsrfToken(event, csrfToken)) {
+      throw createError({
+        statusCode: 403,
+        message: 'Invalid CSRF token'
+      })
+    }
     
     // Hash the password with bcrypt
     const hashedPassword = await bcrypt.hash(password, 10)
