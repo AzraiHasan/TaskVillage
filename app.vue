@@ -15,7 +15,9 @@ console.log('App initialization starting...')
 const { initializeDevUser, getCurrentUser } = useUser()
 initializeDevUser()
 
-console.log('User initialized, current user:', getCurrentUser())
+// Get the current user after initialization
+const currentUser = getCurrentUser()
+console.log('User initialized, current user:', currentUser || 'No user found')
 
 // Initialize the task store when the app starts
 const taskStore = useTaskStore()

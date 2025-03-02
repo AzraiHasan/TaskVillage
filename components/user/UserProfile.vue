@@ -3,7 +3,8 @@
  <div class="max-w-2xl mx-auto">
   <UCard>
    <div class="text-center">
-    <UAvatar :src="profileUser.avatar || '/placeholder-avatar.png'" size="2xl" class="mb-4" />
+    <UAvatar :src="profileUser.avatar || '/placeholder-avatar.png'" size="2xl" class="mb-4"
+     @error="handleAvatarError" />
     <h2 class="text-xl font-semibold">{{ profileUser.name }}</h2>
     <p class="text-gray-600">{{ profileUser.role || getUserRole(profileUser) }}</p>
 
@@ -53,7 +54,7 @@ const props = defineProps({
 
 // Get current user from session
 const { session } = useUserSession()
-const { user: currentUser } = useUser()
+const { getCurrentUser } = useUser()
 
 // Initialize with current user data (for now)
 // In a real app, we would fetch this data based on userId prop
@@ -72,18 +73,27 @@ const profileUser = computed(() => {
  }
 
  // Default to current user
- return {
-  ...session.value?.user,
+ const currentUser = getCurrentUser()
+ return currentUser ? {
+  ...currentUser,
   tasksCompleted: 45, // Placeholder stats
   followers: 128,
   following: 91
+ } : {
+  id: '',
+  name: 'Guest',
+  avatar: '/placeholder-avatar.png',
+  tasksCompleted: 0,
+  followers: 0,
+  following: 0
  }
 })
 
 // Check if the profile being viewed belongs to the current user
 const isCurrentUser = computed(() => {
- if (!session.value?.user) return false
- return session.value.user.id === profileUser.value.id
+ const currentUser = getCurrentUser()
+ if (!currentUser) return false
+ return currentUser.id === profileUser.value.id
 })
 
 // Format user role for display

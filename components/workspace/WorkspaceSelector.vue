@@ -42,24 +42,20 @@ interface WorkspaceOption {
 const { user } = useUser()
 
 // Create computed workspaces with user roles
-const workspacesWithRoles = computed(() => {
+const workspacesWithRoles = computed<WorkspaceOption[]>(() => {
   if (!user.value || !user.value.workspacePermissions) {
     return [
-      { id: 1, name: 'Marketing Team', role: 'member' as WorkspaceRole },
-      { id: 2, name: 'Development Team', role: 'member' as WorkspaceRole }
+      { id: 1, name: 'Marketing Team', role: 'member' },
+      { id: 2, name: 'Development Team', role: 'member' }
     ]
   }
   
   // Map user permissions to workspace options
-  return user.value.workspacePermissions.map(wp => {
-    // Find name from our sample list (in a real app would fetch from API)
-    const name = wp.workspaceId === 1 ? 'Marketing Team' : 'Development Team'
-    return {
-      id: wp.workspaceId,
-      name,
-      role: wp.role
-    }
-  })
+  return user.value.workspacePermissions.map(wp => ({
+    id: wp.workspaceId,
+    name: wp.workspaceId === 1 ? 'Marketing Team' : 'Development Team',
+    role: wp.role
+  }))
 })
 
 const selectedWorkspace = ref<WorkspaceOption | undefined>(undefined)
@@ -67,8 +63,8 @@ const selectedWorkspace = ref<WorkspaceOption | undefined>(undefined)
 // Create a computed property for v-model binding to handle type compatibility
 const selectedWorkspaceValue = computed({
   get: () => selectedWorkspace.value || undefined,
-  set: (value) => {
-    selectedWorkspace.value = value as WorkspaceOption | undefined
+  set: (value: WorkspaceOption | undefined) => {
+    selectedWorkspace.value = value
   }
 })
 
@@ -100,16 +96,11 @@ const handleWorkspaceChange = (workspace: WorkspaceOption) => {
 // Get a badge color based on role
 const getRoleBadgeColor = (role: WorkspaceRole) => {
   switch(role) {
-    case 'owner':
-      return 'green'
-    case 'admin':
-      return 'blue'
-    case 'member':
-      return 'purple'
-    case 'guest':
-      return 'gray'
-    default:
-      return 'gray'
+    case 'owner': return 'green'
+    case 'admin': return 'blue'
+    case 'member': return 'purple'
+    case 'guest': return 'gray'
+    default: return 'gray'
   }
 }
 </script>
