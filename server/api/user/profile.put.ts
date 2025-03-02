@@ -5,7 +5,8 @@ import type { User } from '~/composables/useUser'
 // Define validation schema for profile updates
 const updateSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address')
+  email: z.string().email('Please enter a valid email address'),
+  avatar: z.string().optional() // Add avatar field
 })
 
 export default defineEventHandler(async (event) => {

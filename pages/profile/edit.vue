@@ -1,4 +1,4 @@
-<!-- pages/profile/edit.vue -->
+<!-- pages/profile/edit.vue (modified) -->
 <template>
  <UContainer>
   <div class="max-w-2xl mx-auto py-8">
@@ -16,14 +16,15 @@
      <div class="space-y-6">
       <!-- Profile Avatar -->
       <div class="flex flex-col items-center gap-4">
-       <UAvatar :src="form.avatar || '/placeholder-avatar.png'" size="2xl" />
-       <UButton variant="soft" size="sm" disabled>
+       <UAvatar :src="avatarPreview || form.avatar || '/placeholder-avatar.png'" size="2xl" />
+       <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleAvatarChange" />
+       <UButton variant="soft" size="sm" @click="triggerFileInput">
         Change Avatar
         <template #trailing>
          <Icon name="heroicons:camera" />
         </template>
        </UButton>
-       <p class="text-xs text-gray-500">(Avatar upload coming soon)</p>
+       <p v-if="avatarError" class="text-xs text-red-500">{{ avatarError }}</p>
       </div>
 
       <!-- Profile Fields -->
@@ -80,6 +81,10 @@ import { useUserSession } from '#imports'
 const { session, fetch: refreshSession } = useUserSession()
 const toast = useToast()
 const router = useRouter()
+const fileInput = ref(null)
+const avatarPreview = ref(null)
+const avatarFile = ref(null)
+const avatarError = ref(null)
 
 // Mock workspaces data
 const workspaces = [
@@ -127,12 +132,68 @@ onMounted(() => {
  }
 })
 
+// Trigger file input click
+const triggerFileInput = () => {
+ fileInput.value.click()
+}
+
+// Handle avatar file selection
+const handleAvatarChange = (event) => {
+ const file = event.target.files[0]
+ avatarError.value = null
+
+ if (!file) return
+
+ // Validate file type
+ if (!file.type.startsWith('image/')) {
+  avatarError.value = 'Please select an image file'
+  return
+ }
+
+ // Validate file size (max 5MB)
+ if (file.size > 5 * 1024 * 1024) {
+  avatarError.value = 'Image size should not exceed 5MB'
+  return
+ }
+
+ // Store file for upload
+ avatarFile.value = file
+
+ // Create preview
+ const reader = new FileReader()
+ reader.onload = (e) => {
+  avatarPreview.value = e.target.result
+ }
+ reader.readAsDataURL(file)
+}
+
+// Upload avatar function
+const uploadAvatar = async () => {
+ if (!avatarFile.value) return null
+
+ try {
+  const formData = new FormData()
+  formData.append('avatar', avatarFile.value)
+
+  const response = await $fetch('/api/user/avatar', {
+   method: 'POST',
+   body: formData
+  })
+
+  return response.avatar
+ } catch (err) {
+  console.error('Avatar upload error:', err)
+  throw new Error('Failed to upload avatar')
+ }
+}
+
 // Form submission handler
 const onSubmit = async () => {
  // Reset errors
  error.value = ''
  errors.name = ''
  errors.email = ''
+ avatarError.value = null
 
  try {
   // Validate form data
@@ -140,12 +201,19 @@ const onSubmit = async () => {
 
   isSubmitting.value = true
 
+  // Upload avatar if a new one is selected
+  let avatarUrl = form.avatar
+  if (avatarFile.value) {
+   avatarUrl = await uploadAvatar()
+  }
+
   // Call the update profile API endpoint
   await $fetch('/api/user/profile', {
    method: 'PUT',
    body: {
     name: form.name,
-    email: form.email
+    email: form.email,
+    avatar: avatarUrl
    }
   })
 
@@ -169,6 +237,8 @@ const onSubmit = async () => {
      errors[e.path[0]] = e.message
     }
    })
+  } else if (err.message === 'Failed to upload avatar') {
+   avatarError.value = 'Failed to upload avatar. Please try again.'
   } else {
    // Handle server errors
    error.value = err.data?.message || 'Something went wrong. Please try again.'
