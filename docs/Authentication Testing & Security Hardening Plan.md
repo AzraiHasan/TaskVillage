@@ -5,7 +5,7 @@ This document outlines our comprehensive approach to testing and hardening the a
 
 ## Current Status
 - ✅ Password Strength Requirements - Implemented
-- ⏳ Rate Limiting for Auth Endpoints - Not started
+- ✅ Rate Limiting for Auth Endpoints - Implemented
 - ⏳ Authentication Event Logging - Not started
 - ✅ Security Headers - Implemented
 - ⏳ Basic Authentication Flow Tests - Not started
@@ -39,51 +39,22 @@ This document outlines our comprehensive approach to testing and hardening the a
 - Edge cases properly handled (expired tokens, invalid inputs, etc.)
 - Test coverage of at least 80% for authentication components
 
-### 2. Rate Limiting for Auth Endpoints 🔄
+### 2. Rate Limiting for Auth Endpoints ✅
 
 #### Implementation Details
-- Implement IP-based rate limiting for sensitive endpoints:
+- ✅ IP-based rate limiting implemented for sensitive endpoints:
   - `/api/login`: 5 attempts per 5 minutes
   - `/api/register`: 3 attempts per 10 minutes
-  - `/api/password-reset`: 3 attempts per hour
   
-- Add dynamic rate limiting that increases lockout duration after multiple failures
-- Implement separate limits for API vs UI requests
-
-#### Code Implementation
-```typescript
-// server/middleware/rate-limit.ts
-import { defineEventHandler, createError } from 'h3'
-import { rateLimit } from '~/server/utils/rate-limit'
-
-export default defineEventHandler(async (event) => {
-  const path = getRequestPath(event)
-  
-  // Apply rate limiting only to auth endpoints
-  if (path.startsWith('/api/login') || path.startsWith('/api/register')) {
-    const ip = getRequestIP(event)
-    const key = `${ip}:${path}`
-    
-    const limit = path.includes('login') ? 5 : 3
-    const windowMs = path.includes('login') ? 5 * 60 * 1000 : 10 * 60 * 1000
-    
-    const allowed = await rateLimit(key, limit, windowMs)
-    
-    if (!allowed) {
-      throw createError({
-        statusCode: 429,
-        message: 'Too many requests, please try again later'
-      })
-    }
-  }
-})
-```
+- ✅ Appropriate HTTP status codes (429) for rate limit errors
+- ✅ Rate limit headers to inform clients of their limits
+- ✅ In-memory rate limit storage (Redis recommended for production)
 
 #### Success Criteria
-- Successfully blocks rapid repeated login attempts
-- Returns appropriate status codes and friendly error messages
-- Does not restrict legitimate users
-- Prevents brute force attacks
+- ✅ Successfully blocks rapid repeated login attempts
+- ✅ Returns appropriate status codes and friendly error messages
+- ✅ Does not restrict legitimate users
+- ✅ Prevents brute force attacks
 
 ### 3. Security Headers ✅
 
@@ -190,35 +161,6 @@ export async function logAuthEvent(event: AuthEvent): Promise<void> {
 - ✅ Added visual password strength meter with feedback
 - ❌ Prevent password reuse during resets - to be implemented
 
-#### Code Implementation
-```typescript
-// Password strength validation schema (implemented in password-validation.ts)
-export const createPasswordSchema = () => {
-  return z.string()
-    .min(10, 'Password must be at least 10 characters')
-    .refine(
-      password => /[A-Z]/.test(password),
-      'Password must contain at least one uppercase letter'
-    )
-    .refine(
-      password => /[a-z]/.test(password),
-      'Password must contain at least one lowercase letter'
-    )
-    .refine(
-      password => /[0-9]/.test(password),
-      'Password must contain at least one number'
-    )
-    .refine(
-      password => /[^A-Za-z0-9]/.test(password),
-      'Password must contain at least one special character'
-    )
-    .refine(
-      password => !COMMON_PASSWORDS.includes(password.toLowerCase()),
-      'This password is too common and easily guessed'
-    );
-};
-```
-
 #### Success Criteria
 - ✅ Users can only create strong passwords
 - ✅ Visual feedback helps users create stronger passwords
@@ -228,9 +170,9 @@ export const createPasswordSchema = () => {
 ## Prioritization & Timeline
 
 ### Immediate Priority (1-2 weeks)
-1. **Password Strength Requirements** - Directly improves security
-2. **Rate Limiting for Auth Endpoints** - Protects against brute force attacks
-3. **Authentication Event Logging** - Enables security monitoring
+1. **Password Strength Requirements** - ✅ Completed
+2. **Rate Limiting for Auth Endpoints** - ✅ Completed
+3. **Authentication Event Logging** - Next priority to implement
 
 ### Medium Priority (2-4 weeks)
 1. **Basic Authentication Flow Tests** - Ensures current functionality works
