@@ -2,14 +2,15 @@
 import { z } from 'zod'
 import bcrypt from 'bcrypt'
 import { validateCsrfToken } from '~/server/utils/csrf'
+import { createPasswordSchema } from '~/server/utils/password-validation'
 import type { UserSessionData } from '~/types/userSessionData'
 
 // Define validation schema for registration
 const bodySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  csrfToken: z.string() // Add CSRF token field
+  password: createPasswordSchema(),
+  csrfToken: z.string()
 })
 
 export default defineEventHandler(async (event) => {

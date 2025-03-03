@@ -23,6 +23,7 @@
         <UFormGroup label="Password" name="password" required :error="errors.password">
           <UInput v-model="form.password" placeholder="Create a password" type="password" autocomplete="new-password"
             :ui="{ size: 'lg' }" :disabled="isLoading" />
+          <PasswordStrengthMeter :password="form.password" :show-requirements="true" />
         </UFormGroup>
 
         <UFormGroup label="Confirm Password" name="passwordConfirmation" required :error="errors.passwordConfirmation">
@@ -55,6 +56,7 @@
 
 <script setup>
 import { z } from 'zod'
+import PasswordStrengthMeter from '~/components/auth/PasswordStrengthMeter.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -106,7 +108,24 @@ onMounted(async () => {
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(10, 'Password must be at least 10 characters')
+    .refine(
+      password => /[A-Z]/.test(password),
+      'Password must contain at least one uppercase letter'
+    )
+    .refine(
+      password => /[a-z]/.test(password),
+      'Password must contain at least one lowercase letter'
+    )
+    .refine(
+      password => /[0-9]/.test(password),
+      'Password must contain at least one number'
+    )
+    .refine(
+      password => /[^A-Za-z0-9]/.test(password),
+      'Password must contain at least one special character'
+    ),
   passwordConfirmation: z.string()
 }).refine(data => data.password === data.passwordConfirmation, {
   message: "Passwords don't match",
