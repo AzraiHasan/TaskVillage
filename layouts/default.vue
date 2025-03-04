@@ -31,6 +31,11 @@
         Analytics
        </UButton>
 
+       <!-- Logout button -->
+       <UButton variant="ghost" icon="i-heroicons-arrow-right-on-rectangle" @click="handleLogout" title="Logout">
+        Logout
+       </UButton>
+
        <!-- User dropdown menu -->
        <UDropdown :items="userMenuItems">
         <UAvatar v-if="userData?.name" :src="userData?.avatar || ''" :alt="userData?.name" size="sm" />

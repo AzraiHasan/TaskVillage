@@ -16,7 +16,8 @@
           <UTooltip text="Notifications">
             <UButton variant="ghost" icon="i-heroicons-bell" :notifications="unreadNotifications" to="/notifications" />
           </UTooltip>
-          <UAvatar src="/placeholder-avatar.png" size="sm" />
+          <UAvatar :src="user?.avatar || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'"
+            size="sm" />
         </div>
       </div>
 
@@ -77,10 +78,12 @@
 <script setup>
 import { useTaskStore } from '~/stores/useTaskStore'
 import { useNotificationStore } from '~/stores/useNotificationStore'
+import { useUser } from '~/composables/useUser'
 
-// Get notification store
+// Get notification store and user
 const notificationStore = useNotificationStore()
 const router = useRouter()
+const { user } = useUser()
 
 // Create computed property for unread notifications
 const unreadNotifications = computed(() => {
@@ -173,8 +176,17 @@ const formatTime = (timestamp) => {
   return 'Just now'
 }
 
-// Set initial workspace
+// Set initial workspace and init user
 onMounted(() => {
-  taskStore.setWorkspace(1) // Set to first workspace by default
+  // Initialize dev user first
+  const { initializeDevUser } = useUser()
+  initializeDevUser()
+
+  // Then set workspace
+  try {
+    taskStore.setWorkspace(1) // Set to first workspace by default
+  } catch (error) {
+    console.error("Failed to set workspace:", error)
+  }
 })
 </script>

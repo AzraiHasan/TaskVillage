@@ -182,7 +182,7 @@ privateTasks: (state): Task[] =>
           progress: taskData.progress || 0,
           assignee: taskData.assignee || {
             name: 'Current User',
-            avatar: '/placeholder-avatar.png'
+            avatar: 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
           },
           likes: 0,
           likedBy: [],
@@ -239,7 +239,7 @@ privateTasks: (state): Task[] =>
       taskTitle: task.title,
       user: {
         name: user.value?.name || 'Current User',
-        avatar: user.value?.avatar || '/placeholder-avatar.png'
+    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
       },
       action: `assigned you to task`,
       read: false
@@ -418,7 +418,7 @@ notificationStore.addNotification({
   taskTitle: task.title,
   user: {
     name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || '/placeholder-avatar.png'
+    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
   },
   action: 'completed a task',
   read: false
@@ -469,7 +469,7 @@ notificationStore.addNotification({
   taskTitle: task.title,
   user: {
     name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || '/placeholder-avatar.png'
+    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
   },
   action: 'canceled a task',
   read: false
@@ -518,7 +518,7 @@ notificationStore.addNotification({
   taskTitle: task.title,
   user: {
     name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || '/placeholder-avatar.png'
+    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
   },
   action: 'updated a task',
   read: false

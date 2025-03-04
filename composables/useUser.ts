@@ -22,7 +22,7 @@ export const useUser = () => {
       id: 'user1',
       name: 'Sarah Chen',
       email: 'sarah@taskvillage.dev',
-      avatar: '/placeholder-avatar.png',
+      avatar: 'https://ui-avatars.com/api/?name=Sarah+Chen&background=0D8ABC&color=fff',
       workspaces: [1, 2]
     }
 
