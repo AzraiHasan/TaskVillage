@@ -10,5 +10,21 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     'pinia-plugin-persistedstate/nuxt',
     '@nuxtjs/supabase'
-  ]
+  ],
+  
+  // Supabase configuration
+  supabase: {
+    // For local development, you need to set these environment variables:
+    // SUPABASE_URL=your-supabase-url
+    // SUPABASE_KEY=your-supabase-anon-key
+    redirectOptions: {
+      login: '/auth/login',
+      callback: '/auth/confirm',
+      exclude: [
+        '/auth/register',
+        '/auth/login',
+        '/auth/confirm'
+      ]
+    }
+  }
 })
