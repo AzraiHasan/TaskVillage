@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { TaskVillageError, ErrorCode } from '~/types/errors'
 import { useNotificationStore } from '~/stores/useNotificationStore'
+import { useUser } from '~/composables/useUser'
 
 // Maintain existing type constants
 export const TASK_TYPES = ['public', 'private'] as const
@@ -77,16 +78,16 @@ export const useTaskStore = defineStore('tasks', {
 
   getters: {
     publicTasks: (state): Task[] => 
-  state.tasks.filter(task => 
-    task.type === 'public' && 
-    (task.workspaceId === state.workspaceId || task.workspaceId === null)
-  ),
+      state.tasks.filter(task => 
+        task.type === 'public' && 
+        (task.workspaceId === state.workspaceId || task.workspaceId === null)
+      ),
 
-privateTasks: (state): Task[] =>
-  state.tasks.filter(task => 
-    task.type === 'private' && 
-    (task.workspaceId === state.workspaceId || task.workspaceId === null)
-  ),
+    privateTasks: (state): Task[] =>
+      state.tasks.filter(task => 
+        task.type === 'private' && 
+        (task.workspaceId === state.workspaceId || task.workspaceId === null)
+      ),
     
     getTaskById: (state) => (id: number): Task | undefined =>
       state.tasks.find(task => task.id === id),
@@ -145,7 +146,6 @@ privateTasks: (state): Task[] =>
         console.log('Store initialized successfully')
       } catch (error) {
         console.error('Failed to initialize store:', error)
-        // Handle initialization error
         this.lastError = error instanceof TaskVillageError 
           ? error 
           : new TaskVillageError('Failed to initialize store', ErrorCode.OPERATION_FAILED)
@@ -204,57 +204,57 @@ privateTasks: (state): Task[] =>
     },
 
     async assignTask(taskId: number, assignee: { id: string, name: string, avatar: string }): Promise<boolean> {
-  this.isLoading = true
-  this.lastError = null
+      this.isLoading = true
+      this.lastError = null
 
-  try {
-    const taskIndex = this.tasks.findIndex(t => t.id === taskId)
-    if (taskIndex === -1) {
-      throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
-    }
+      try {
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+        if (taskIndex === -1) {
+          throw new TaskVillageError('Task not found', ErrorCode.TASK_NOT_FOUND)
+        }
 
-    const task = this.tasks[taskIndex]
-    
-    const { hasWorkspaceAccess } = useUser()
-    if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
-      throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
-    }
+        const task = this.tasks[taskIndex]
+        
+        const { hasWorkspaceAccess } = useUser()
+        if (task.workspaceId !== null && !hasWorkspaceAccess(task.workspaceId)) {
+          throw new TaskVillageError('No access to modify task', ErrorCode.WORKSPACE_ACCESS_DENIED)
+        }
 
-    // Update the task assignee
-    this.tasks[taskIndex] = {
-      ...task,
-      assignee: {
-        name: assignee.name,
-        avatar: assignee.avatar
+        // Update the task assignee
+        this.tasks[taskIndex] = {
+          ...task,
+          assignee: {
+            name: assignee.name,
+            avatar: assignee.avatar
+          }
+        }
+
+        // Create a notification for the assignment
+        const notificationStore = useNotificationStore()
+        const { user } = useUser()
+
+        notificationStore.addNotification({
+          userId: assignee.id, // Direct notification to the assignee
+          taskId: task.id,
+          taskTitle: task.title,
+          user: {
+            name: user.value?.name || 'Current User',
+            avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
+          },
+          action: `assigned you to task`,
+          read: false
+        })
+
+        return true
+      } catch (error) {
+        this.lastError = error instanceof TaskVillageError 
+          ? error 
+          : new TaskVillageError('Failed to assign task', ErrorCode.OPERATION_FAILED)
+        throw this.lastError
+      } finally {
+        this.isLoading = false
       }
-    }
-
-    // Create a notification for the assignment
-    const notificationStore = useNotificationStore()
-    const { user } = useUser()
-
-    notificationStore.addNotification({
-      userId: assignee.id, // Direct notification to the assignee
-      taskId: task.id,
-      taskTitle: task.title,
-      user: {
-        name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
-      },
-      action: `assigned you to task`,
-      read: false
-    })
-
-    return true
-  } catch (error) {
-    this.lastError = error instanceof TaskVillageError 
-      ? error 
-      : new TaskVillageError('Failed to assign task', ErrorCode.OPERATION_FAILED)
-    throw this.lastError
-  } finally {
-    this.isLoading = false
-  }
-},
+    },
 
     setWorkspace(workspaceId: number | null) {
       try {
@@ -279,14 +279,14 @@ privateTasks: (state): Task[] =>
     },
 
     determineStatus(progress: number): Status {
-  if (progress === 0) {
-    return 'not_started';
-  } else if (progress < 100) {
-    return 'in_progress';
-  } else {
-    return 'completed';
-  }
-},
+      if (progress === 0) {
+        return 'not_started';
+      } else if (progress < 100) {
+        return 'in_progress';
+      } else {
+        return 'completed';
+      }
+    },
 
     async updateTaskProgress(taskId: number, progress: number): Promise<boolean> {
       this.isLoading = true
@@ -312,7 +312,7 @@ privateTasks: (state): Task[] =>
         this.tasks[taskIndex] = {
           ...task,
           progress: Math.round(progress),
-          status: (this as any).determineStatus(progress)
+          status: this.determineStatus(progress)
         }
 
         return true
@@ -386,6 +386,7 @@ privateTasks: (state): Task[] =>
         throw this.lastError
       }
     },
+    
     async completeTask(taskId: number): Promise<boolean> {
       this.isLoading = true
       this.lastError = null
@@ -410,19 +411,19 @@ privateTasks: (state): Task[] =>
         }
 
         const notificationStore = useNotificationStore()
-const { user } = useUser()
+        const { user } = useUser()
 
-notificationStore.addNotification({
-  userId: 'all', // Notify all team members
-  taskId: task.id,
-  taskTitle: task.title,
-  user: {
-    name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
-  },
-  action: 'completed a task',
-  read: false
-})
+        notificationStore.addNotification({
+          userId: 'all', // Notify all team members
+          taskId: task.id,
+          taskTitle: task.title,
+          user: {
+            name: user.value?.name || 'Current User',
+            avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
+          },
+          action: 'completed a task',
+          read: false
+        })
 
         return true
       } catch (error) {
@@ -461,19 +462,19 @@ notificationStore.addNotification({
         }
 
         const notificationStore = useNotificationStore()
-const { user } = useUser()
+        const { user } = useUser()
 
-notificationStore.addNotification({
-  userId: 'all',
-  taskId: task.id,
-  taskTitle: task.title,
-  user: {
-    name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
-  },
-  action: 'canceled a task',
-  read: false
-})
+        notificationStore.addNotification({
+          userId: 'all',
+          taskId: task.id,
+          taskTitle: task.title,
+          user: {
+            name: user.value?.name || 'Current User',
+            avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
+          },
+          action: 'canceled a task',
+          read: false
+        })
 
         return true
       } catch (error) {
@@ -510,19 +511,19 @@ notificationStore.addNotification({
         }
 
         const notificationStore = useNotificationStore()
-const { user } = useUser()
+        const { user } = useUser()
 
-notificationStore.addNotification({
-  userId: 'all',
-  taskId: task.id,
-  taskTitle: task.title,
-  user: {
-    name: user.value?.name || 'Current User',
-    avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
-  },
-  action: 'updated a task',
-  read: false
-})
+        notificationStore.addNotification({
+          userId: 'all',
+          taskId: task.id,
+          taskTitle: task.title,
+          user: {
+            name: user.value?.name || 'Current User',
+            avatar: user.value?.avatar || 'https://ui-avatars.com/api/?name=Current+User&background=0D8ABC&color=fff'
+          },
+          action: 'updated a task',
+          read: false
+        })
 
         return true
       } catch (error) {
@@ -534,16 +535,9 @@ notificationStore.addNotification({
         this.isLoading = false
       }
     }
-    
   },
 
   persist: true
 })
-
-useTaskStore.prototype.determineStatus = function(progress: number): Status {
-  if (progress === 100) return 'completed'
-  if (progress > 0) return 'in_progress'
-  return 'not_started'
-}
 
 export type TaskStore = ReturnType<typeof useTaskStore>
