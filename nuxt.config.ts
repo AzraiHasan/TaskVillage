@@ -5,5 +5,10 @@ export default defineNuxtConfig({
   colorMode: {
     preference: 'light'
   },
-  modules: ['@nuxt/ui','@pinia/nuxt','pinia-plugin-persistedstate/nuxt']
+  modules: [
+    '@nuxt/ui',
+    '@pinia/nuxt',
+    'pinia-plugin-persistedstate/nuxt',
+    '@nuxtjs/supabase'
+  ]
 })
